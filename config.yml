@@ -17,6 +17,6 @@ tuner:
     #choice: maximize, minimize
     optimize_mode: maximize
 trial:
-  command: python3 train.py --epochs 160 --teacher resnet110 --student resnet8 --cuda 1
+  command: python3 train.py --epochs 160 --teacher resnet110 --student resnet8 --cuda 1 --dataset cifar10
   codeDir: .
   gpuNum: 1

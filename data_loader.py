@@ -2,7 +2,7 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 
-NUM_WORKERS = 2
+NUM_WORKERS = 4
 
 
 def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=False):

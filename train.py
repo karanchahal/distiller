@@ -1,5 +1,5 @@
 import os
-import nni
+#import nni
 import copy
 import torch
 import argparse
@@ -27,6 +27,7 @@ def parse_arguments():
 	parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
 	parser.add_argument('--teacher', default='', type=str, help='teacher student name')
 	parser.add_argument('--student', '--model', default='resnet8', type=str, help='teacher student name')
+	parser.add_argument('--resume-state-ckp', default='', type=str, help='optinal pretrained checkpoint for teacher training')
 	parser.add_argument('--teacher-checkpoint', default='', type=str, help='optinal pretrained checkpoint for teacher')
 	parser.add_argument('--cuda', default=False, type=str2bool, help='whether or not use cuda(train on GPU)')
 	parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
@@ -44,6 +45,19 @@ def load_checkpoint(model, checkpoint_path):
 	model_ckp = torch.load(checkpoint_path)
 	model.load_state_dict(model_ckp['model_state_dict'])
 	return model
+
+def load_train_state(model, optimizer, checkpoint_path):
+	"""
+	Loads weights from checkpoint
+	:param model: a pytorch nn student
+	:param str checkpoint_path: address/path of a file
+	:return: pytorch nn student with weights loaded from checkpoint
+	"""
+	model_ckp = torch.load(checkpoint_path)
+	model.load_state_dict(model_ckp['model_state_dict'])
+	optimizer.load_state_dict(model_ckp['optimizer_state_dict'])
+	epoch = model_ckp['epoch']
+	return model, optimizer, epoch
 
 
 class TrainManager(object):
@@ -64,6 +78,7 @@ class TrainManager(object):
 		self.train_loader = train_loader
 		self.test_loader = test_loader
 		self.config = train_config
+		self.start_epoch = 0
 	
 	def train(self):
 		lambda_ = self.config['lambda_student']
@@ -75,7 +90,7 @@ class TrainManager(object):
 		iteration = 0
 		best_acc = 0
 		criterion = nn.CrossEntropyLoss()
-		for epoch in range(epochs):
+		for epoch in range(self.start_epoch, epochs):
 			self.student.train()
 			self.adjust_learning_rate(self.optimizer, epoch)
 			loss = 0
@@ -165,10 +180,10 @@ if __name__ == "__main__":
 	# Parsing arguments and prepare settings for training
 	args = parse_arguments()
 	print(args)
-	config = nni.get_next_parameter()
-	torch.manual_seed(config['seed'])
-	torch.cuda.manual_seed(config['seed'])
-	trial_id = os.environ.get('NNI_TRIAL_JOB_ID')
+	#config = nni.get_next_parameter()
+	torch.manual_seed(1)
+	torch.cuda.manual_seed(1)
+	trial_id = 1
 	dataset = args.dataset
 	num_classes = 100 if dataset == 'cifar100' else 'cifar10'
 	teacher_model = None
@@ -181,8 +196,8 @@ if __name__ == "__main__":
 		'device': 'cuda' if args.cuda else 'cpu',
 		'is_plane': not is_resnet(args.student),
 		'trial_id': trial_id,
-		'T_student': config.get('T_student'),
-		'lambda_student': config.get('lambda_student'),
+		'T_student': 2,
+		'lambda_student': 0.05,
 	}
 	
 	
@@ -200,6 +215,8 @@ if __name__ == "__main__":
 			teacher_name = '{}_{}_best.pth.tar'.format(args.teacher, trial_id)
 			teacher_train_config['name'] = args.teacher
 			teacher_trainer = TrainManager(teacher_model, teacher=None, train_loader=train_loader, test_loader=test_loader, train_config=teacher_train_config)
+			if args.resume_state_ckp:
+				teacher_trainer.student, teacher_trainer.optimizer, teacher_trainer.start_epoch = load_train_state(teacher_trainer.student, teacher_trainer.optimizer, args.resume_state_ckp)
 			teacher_trainer.train()
 			teacher_model = load_checkpoint(teacher_model, os.path.join('./', teacher_name))
 			
@@ -209,5 +226,7 @@ if __name__ == "__main__":
 	train_loader, test_loader = get_cifar(num_classes)
 	student_train_config['name'] = args.student
 	student_trainer = TrainManager(student_model, teacher=teacher_model, train_loader=train_loader, test_loader=test_loader, train_config=student_train_config)
+	if args.resume_state_ckp:
+		student_trainer.student, student_trainer.optimizer, student_trainer.start_epoch = load_train_state(student_trainer.student, student_trainer.optimizer, args.resume_state_ckp)
 	best_student_acc = student_trainer.train()
-	nni.report_final_result(best_student_acc)
+	#nni.report_final_result(best_student_acc)
