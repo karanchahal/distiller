@@ -5,7 +5,6 @@ Reference:
 [1] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In CVPR, 2016.
 [2] K. He, X. Zhang, S. Ren, and J. Sun. Identity mappings in deep residual networks. In ECCV, 2016.
 """
-import torch
 import torch.nn as nn
 import math
 
@@ -15,7 +14,7 @@ def conv3x3(in_planes, out_planes, stride=1):
 
 
 class BasicBlock(nn.Module):
-    expansion=1
+    expansion = 1
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(BasicBlock, self).__init__()
@@ -47,16 +46,17 @@ class BasicBlock(nn.Module):
 
 
 class Bottleneck(nn.Module):
-    expansion=4
+    expansion = 4
 
     def __init__(self, inplanes, planes, stride=1, downsample=None):
         super(Bottleneck, self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, planes*4, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes*4)
+        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes * 4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -126,9 +126,10 @@ class PreActBottleneck(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3,
+                               stride=stride, padding=1, bias=False)
         self.bn3 = nn.BatchNorm2d(planes)
-        self.conv3 = nn.Conv2d(planes, planes*4, kernel_size=1, bias=False)
+        self.conv3 = nn.Conv2d(planes, planes * 4, kernel_size=1, bias=False)
         self.downsample = downsample
         self.stride = stride
 
@@ -161,7 +162,8 @@ class ResNet_Cifar(nn.Module):
     def __init__(self, block, layers, num_classes=10):
         super(ResNet_Cifar, self).__init__()
         self.inplanes = 16
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
+                               stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 16, layers[0])
@@ -182,7 +184,8 @@ class ResNet_Cifar(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion)
             )
 
@@ -215,14 +218,15 @@ class PreAct_ResNet_Cifar(nn.Module):
     def __init__(self, block, layers, num_classes=10):
         super(PreAct_ResNet_Cifar, self).__init__()
         self.inplanes = 16
-        self.conv1 = nn.Conv2d(3, 16, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
+                               stride=1, padding=1, bias=False)
         self.layer1 = self._make_layer(block, 16, layers[0])
         self.layer2 = self._make_layer(block, 32, layers[1], stride=2)
         self.layer3 = self._make_layer(block, 64, layers[2], stride=2)
-        self.bn = nn.BatchNorm2d(64*block.expansion)
+        self.bn = nn.BatchNorm2d(64 * block.expansion)
         self.relu = nn.ReLU(inplace=True)
         self.avgpool = nn.AvgPool2d(8, stride=1)
-        self.fc = nn.Linear(64*block.expansion, num_classes)
+        self.fc = nn.Linear(64 * block.expansion, num_classes)
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -234,14 +238,15 @@ class PreAct_ResNet_Cifar(nn.Module):
 
     def _make_layer(self, block, planes, blocks, stride=1):
         downsample = None
-        if stride != 1 or self.inplanes != planes*block.expansion:
+        if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes*block.expansion, kernel_size=1, stride=stride, bias=False)
+                nn.Conv2d(self.inplanes, planes * block.expansion,
+                          kernel_size=1, stride=stride, bias=False)
             )
 
         layers = []
         layers.append(block(self.inplanes, planes, stride, downsample))
-        self.inplanes = planes*block.expansion
+        self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes))
         return nn.Sequential(*layers)
@@ -262,10 +267,10 @@ class PreAct_ResNet_Cifar(nn.Module):
         return x
 
 
-
 def resnet14_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [2, 2, 2], **kwargs)
     return model
+
 
 def resnet8_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [1, 1, 1], **kwargs)
@@ -276,9 +281,11 @@ def resnet20_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [3, 3, 3], **kwargs)
     return model
 
+
 def resnet26_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [4, 4, 4], **kwargs)
     return model
+
 
 def resnet32_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [5, 5, 5], **kwargs)
@@ -329,13 +336,14 @@ def preact_resnet1001_cifar(**kwargs):
     model = PreAct_ResNet_Cifar(PreActBottleneck, [111, 111, 111], **kwargs)
     return model
 
+
 resnet_book = {
-	'8': resnet8_cifar,
-	'14': resnet14_cifar,
-	'20': resnet20_cifar,
-	'26': resnet26_cifar,
-	'32': resnet32_cifar,
-	'44': resnet44_cifar,
-	'56': resnet56_cifar,
-	'110': resnet110_cifar,
+    '8': resnet8_cifar,
+    '14': resnet14_cifar,
+    '20': resnet20_cifar,
+    '26': resnet26_cifar,
+    '32': resnet32_cifar,
+    '44': resnet44_cifar,
+    '56': resnet56_cifar,
+    '110': resnet110_cifar,
 }
