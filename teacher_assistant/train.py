@@ -35,6 +35,8 @@ def parse_arguments():
                         type=float, help='SGD weight decay (default: 1e-4)')
     parser.add_argument('--teacher', default='', type=str,
                         help='teacher student name')
+    parser.add_argument('--ta', default='resnet14',
+                        type=str, help='teacher student name')
     parser.add_argument('--student', '--model', default='resnet8',
                         type=str, help='teacher student name')
     parser.add_argument('--resume-state-ckp', default='', type=str,
@@ -225,7 +227,6 @@ if __name__ == "__main__":
     dataset = args.dataset
     num_classes = 100 if dataset == 'cifar100' else 10
     teacher_model = None
-    student_model = create_cnn_model(args.student, dataset, use_cuda=args.cuda)
     train_config = {
         'epochs': args.epochs,
         'learning_rate': args.learning_rate,
@@ -266,12 +267,29 @@ if __name__ == "__main__":
             teacher_model = load_checkpoint(
                 teacher_model, os.path.join('./', teacher_name))
 
+    # Teaching Assistant training
+    print("---------- Training TA -------")
+    ta_model = create_cnn_model(args.ta, dataset, use_cuda=args.cuda)
+
+    ta_train_config = copy.deepcopy(train_config)
+    ta_train_config['name'] = args.ta
+    ta_trainer = TrainManager(ta_model,
+                              teacher=teacher_model,
+                              train_loader=train_loader,
+                              test_loader=test_loader,
+                              train_config=ta_train_config)
+    if args.resume_state_ckp:
+        ta_trainer.student, ta_trainer.optimizer, ta_trainer.start_epoch = load_train_state(
+            ta_trainer.student, ta_trainer.optimizer, args.resume_state_ckp)
+    best_ta_acc = ta_trainer.train()
+
     # Student training
     print("---------- Training Student -------")
+    student_model = create_cnn_model(args.student, dataset, use_cuda=args.cuda)
     student_train_config = copy.deepcopy(train_config)
     student_train_config['name'] = args.student
     student_trainer = TrainManager(student_model,
-                                   teacher=teacher_model,
+                                   teacher=ta_model,
                                    train_loader=train_loader,
                                    test_loader=test_loader,
                                    train_config=student_train_config)
