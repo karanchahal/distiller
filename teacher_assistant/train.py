@@ -15,10 +15,7 @@ BATCH_SIZE = 128
 
 
 def str2bool(v):
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    else:
-        return False
+    return v.lower() in ('yes', 'true', 't', 'y', '1')
 
 
 def parse_arguments():
@@ -79,7 +76,8 @@ def load_train_state(model, optimizer, checkpoint_path):
 
 
 class TrainManager(object):
-    def __init__(self, student, teacher=None, train_loader=None, test_loader=None, train_config={}):
+    def __init__(self, student, teacher=None, train_loader=None,
+                 test_loader=None, train_config={}):
         self.student = student
         self.teacher = teacher
         self.have_teacher = bool(self.teacher)
@@ -97,8 +95,9 @@ class TrainManager(object):
         self.test_loader = test_loader
         self.config = train_config
         self.start_epoch = 0
+        self.criterion = nn.CrossEntropyLoss()
 
-    def train_single_epoch(self, lambda_, T, criterion, epoch):
+    def train_single_epoch(self, lambda_, T, epoch):
         total_loss = 0
         bar_format = "{desc} {percentage:3.0f}%"
         bar_format += "|{bar}|"
@@ -110,7 +109,7 @@ class TrainManager(object):
             self.optimizer.zero_grad()
             output = self.student(data)
             # Standard Learning Loss ( Classification Loss)
-            loss_SL = criterion(output, target)
+            loss_SL = self.criterion(output, target)
             loss = loss_SL
 
             if self.have_teacher:
@@ -138,12 +137,11 @@ class TrainManager(object):
 
         max_val_acc = 0
         best_acc = 0
-        criterion = nn.CrossEntropyLoss()
         for epoch in range(self.start_epoch, epochs):
             self.student.train()
             self.adjust_learning_rate(self.optimizer, epoch)
 
-            self.train_single_epoch(lambda_, T, criterion, epoch)
+            self.train_single_epoch(lambda_, T, epoch)
 
             val_acc = self.validate(step=epoch)
             if val_acc > best_acc:
@@ -156,18 +154,21 @@ class TrainManager(object):
         self.student.eval()
         with torch.no_grad():
             correct = 0
-            total = 0
             acc = 0
             for images, labels in self.test_loader:
                 images = images.to(self.device)
                 labels = labels.to(self.device)
-                outputs = self.student(images)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-            # self.accuracy_history.append(acc)
-            acc = 100 * correct / total
-            print(f"metric: {self.name}_val_accuracy, value: {acc}")
+                output = self.student(images)
+                # Standard Learning Loss ( Classification Loss)
+                loss = self.criterion(output, labels)
+                # get the index of the max log-probability
+                pred = output.data.max(1, keepdim=True)[1]
+                correct += pred.eq(labels.data.view_as(pred)).cpu().sum()
+
+            acc = 100.0 * correct / len(test_loader.dataset)
+            print(f"Validation set: Average loss: {loss:.4f},"
+                  f"Accuracy: {correct}/{len(test_loader.dataset)} "
+                  f"({acc:.3f}%)\n")
             return acc
 
     def save(self, epoch, name=None):
@@ -207,11 +208,11 @@ class TrainManager(object):
 
 config = {
     # {"_type": "quniform", "_value": [0.05, 1.0, 0.05]},
-    "lambda_student": 0.95,
+    "lambda_student": 0.4,
     # {"_type": "choice", "_value": [1, 2, 5, 10, 15, 20]},
-    "T_student": 5,
+    "T_student": 10,
     #{"_type": "choice", "_value": [20, 31, 55]}
-    "seed": 31,
+    "seed": 1,
 }
 
 
@@ -222,7 +223,7 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(config["seed"])
     trial_id = 1
     dataset = args.dataset
-    num_classes = 100 if dataset == 'cifar100' else 'cifar10'
+    num_classes = 100 if dataset == 'cifar100' else 10
     teacher_model = None
     student_model = create_cnn_model(args.student, dataset, use_cuda=args.cuda)
     train_config = {

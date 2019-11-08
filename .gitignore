@@ -131,3 +131,5 @@ dmypy.json
 
 teacher_assistant/data
 
+
+*.tar

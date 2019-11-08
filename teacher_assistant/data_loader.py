@@ -5,7 +5,7 @@ import torchvision.transforms as transforms
 NUM_WORKERS = 4
 
 
-def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=False):
+def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=True):
     """
     :param num_classes: 10 for cifar10, 100 for cifar100
     :param dataset_dir: location of datasets, default is a directory named 'data'
@@ -14,7 +14,7 @@ def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=False)
     :return:
     """
     normalize = transforms.Normalize(
-        mean=[0.507, 0.487, 0.441], std=[0.267, 0.256, 0.276])
+        (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     simple_transform = transforms.Compose([transforms.ToTensor(), normalize])
 
     if crop is True:
@@ -45,12 +45,3 @@ def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=False)
     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size, num_workers=NUM_WORKERS,
                                              pin_memory=True, shuffle=False)
     return trainloader, testloader
-
-
-if __name__ == "__main__":
-    print("CIFAR10")
-    print(get_cifar(10))
-    print("---" * 20)
-    print("---" * 20)
-    print("CIFAR100")
-    print(get_cifar(100))
