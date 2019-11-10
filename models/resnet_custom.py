@@ -270,6 +270,16 @@ class PreAct_ResNet_Cifar(nn.Module):
         return x
 
 
+def resnet8_cifar(**kwargs):
+    model = ResNet_Cifar(BasicBlock, [1, 1, 1], **kwargs)
+    return model
+
+
+def resnet14_cifar(**kwargs):
+    model = ResNet_Cifar(BasicBlock, [2, 2, 2], **kwargs)
+    return model
+
+
 def resnet20_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [3, 3, 3], **kwargs)
     return model

@@ -4,7 +4,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 from collections import OrderedDict
 
-__all__ = ['DenseNet', 'densenet121', 'densenet169', 'densenet201', 'densenet161']
+__all__ = ['DenseNet', 'densenet121',
+           'densenet169', 'densenet201', 'densenet161']
+
 
 class _DenseLayer(nn.Sequential):
     def __init__(self, num_input_features, growth_rate, bn_size, drop_rate):
@@ -68,7 +70,7 @@ class DenseNet(nn.Module):
         super(DenseNet, self).__init__()
 
         # First convolution
-        
+
         # CIFAR-10: kernel_size 7 ->3, stride 2->1, padding 3->1
         self.features = nn.Sequential(OrderedDict([
             ('conv0', nn.Conv2d(3, num_init_features, kernel_size=3, stride=1,
@@ -77,7 +79,7 @@ class DenseNet(nn.Module):
             ('relu0', nn.ReLU(inplace=True)),
             ('pool0', nn.MaxPool2d(kernel_size=3, stride=2, padding=1)),
         ]))
-        ## END
+        # END
 
         # Each denseblock
         num_features = num_init_features
@@ -116,10 +118,12 @@ class DenseNet(nn.Module):
         out = self.classifier(out)
         return out
 
+
 def _densenet(arch, growth_rate, block_config, num_init_features, pretrained, progress, device, **kwargs):
     model = DenseNet(growth_rate, block_config, num_init_features, **kwargs)
     if pretrained:
-        state_dict = torch.load('models/state_dicts/'+arch+'.pt', map_location=device)
+        state_dict = torch.load(
+            'models/state_dicts/' + arch + '.pt', map_location=device)
         model.load_state_dict(state_dict)
     return model
 

@@ -19,20 +19,6 @@ def load_checkpoint(model, checkpoint_path):
     return model
 
 
-def load_train_state(model, optimizer, checkpoint_path):
-    """
-    Loads weights from checkpoint
-    :param model: a pytorch nn student
-    :param str checkpoint_path: address/path of a file
-    :return: pytorch nn student with weights loaded from checkpoint
-    """
-    model_ckp = torch.load(checkpoint_path)
-    model.load_state_dict(model_ckp["model_state_dict"])
-    optimizer.load_state_dict(model_ckp["optimizer_state_dict"])
-    epoch = model_ckp["epoch"]
-    return model, optimizer, epoch
-
-
 class TrainManager(object):
     def __init__(self, student, teacher=None, train_loader=None,
                  test_loader=None, train_config={}):

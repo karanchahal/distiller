@@ -25,8 +25,6 @@ def parse_arguments():
                         type=float, help="SGD weight decay (default: 1e-4)")
     parser.add_argument("--teacher", default="", type=str,
                         help="teacher student name")
-    parser.add_argument("--ta", default="resnet44",
-                        type=str, help="teacher student name")
     parser.add_argument("--student", "--model", default="resnet18",
                         type=str, help="teacher student name")
     parser.add_argument("--teacher-checkpoint", default="",
@@ -43,6 +41,14 @@ def str2bool(v):
     return v.lower() in ("yes", "true", "t", "y", "1")
 
 
+def test_ta(dataset, params):
+    # Arguments specifically for the teacher assistant approach
+    params["ta"] = "resnet44"
+    use_cuda = params["cuda"]
+    ta_model = create_cnn_model(params["ta"], dataset, use_cuda=use_cuda)
+    run_teacher_assistant(student_model, ta_model, teacher_model, **params)
+
+
 if __name__ == "__main__":
     args = parse_arguments()
     dataset = args.dataset
@@ -51,7 +57,6 @@ if __name__ == "__main__":
 
     # Parsing arguments and prepare settings for training
     torch.manual_seed(1)
-    torch.cuda.manual_seed(1)
 
     teacher_model = create_cnn_model(args.teacher, dataset, use_cuda=args.cuda)
     student_model = create_cnn_model(args.student, dataset, use_cuda=args.cuda)
@@ -69,7 +74,4 @@ if __name__ == "__main__":
         "test_loader": test_loader,
     }
 
-    # Arguments specifically for the teacher assistant approach
-    params["ta"] = args.ta
-    ta_model = create_cnn_model(args.ta, dataset, use_cuda=args.cuda)
-    run_teacher_assistant(student_model, ta_model, teacher_model, **params)
+    test_ta(dataset, params)

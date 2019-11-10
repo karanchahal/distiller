@@ -6,6 +6,7 @@ __all__ = [
     'vgg19_bn', 'vgg19',
 ]
 
+
 class VGG(nn.Module):
 
     def __init__(self, features, num_classes=10, init_weights=True):
@@ -34,7 +35,8 @@ class VGG(nn.Module):
     def _initialize_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                nn.init.kaiming_normal_(
+                    m.weight, mode='fan_out', nonlinearity='relu')
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
             elif isinstance(m, nn.BatchNorm2d):
@@ -74,7 +76,8 @@ def _vgg(arch, cfg, batch_norm, pretrained, progress, device, **kwargs):
         kwargs['init_weights'] = False
     model = VGG(make_layers(cfgs[cfg], batch_norm=batch_norm), **kwargs)
     if pretrained:
-        state_dict = torch.load('models/state_dicts/'+arch+'.pt', map_location=device)
+        state_dict = torch.load(
+            'models/state_dicts/' + arch + '.pt', map_location=device)
         model.load_state_dict(state_dict)
     return model
 
