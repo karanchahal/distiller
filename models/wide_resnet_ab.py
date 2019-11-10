@@ -97,49 +97,49 @@ class WideResNet(nn.Module):
         return self.fc(out)
 
 
-def WRN10_4(num_class=10):
-    return WideResNet(depth=10, num_classes=num_class, widen_factor=4)
+def WRN10_4(num_classes=10):
+    return WideResNet(depth=10, num_classes=num_classes, widen_factor=4)
 
 
-def WRN16_1(num_class=10):
-    return WideResNet(depth=16, num_classes=num_class, widen_factor=1)
+def WRN16_1(num_classes=10):
+    return WideResNet(depth=16, num_classes=num_classes, widen_factor=1)
 
 
-def WRN16_2(num_class=10):
-    return WideResNet(depth=16, num_classes=num_class, widen_factor=2)
+def WRN16_2(num_classes=10):
+    return WideResNet(depth=16, num_classes=num_classes, widen_factor=2)
 
 
-def WRN16_4(num_class=10):
-    return WideResNet(depth=16, num_classes=num_class, widen_factor=4)
+def WRN16_4(num_classes=10):
+    return WideResNet(depth=16, num_classes=num_classes, widen_factor=4)
 
 
-def WRN16_8(num_class=10):
-    return WideResNet(depth=16, num_classes=num_class, widen_factor=8)
+def WRN16_8(num_classes=10):
+    return WideResNet(depth=16, num_classes=num_classes, widen_factor=8)
 
 
-def WRN28_2(num_class=10):
-    return WideResNet(depth=28, num_classes=num_class, widen_factor=2)
+def WRN28_2(num_classes=10):
+    return WideResNet(depth=28, num_classes=num_classes, widen_factor=2)
 
 
-def WRN22_4(num_class=10):
-    return WideResNet(depth=22, num_classes=num_class, widen_factor=4)
+def WRN22_4(num_classes=10):
+    return WideResNet(depth=22, num_classes=num_classes, widen_factor=4)
 
 
-def WRN22_8(num_class=10):
-    return WideResNet(depth=22, num_classes=num_class, widen_factor=8)
+def WRN22_8(num_classes=10):
+    return WideResNet(depth=22, num_classes=num_classes, widen_factor=8)
 
 
-def WRN28_1(num_class=10):
-    return WideResNet(depth=28, num_classes=num_class, widen_factor=1)
+def WRN28_1(num_classes=10):
+    return WideResNet(depth=28, num_classes=num_classes, widen_factor=1)
 
 
-def WRN10_1(num_class=10):
-    return WideResNet(depth=10, num_classes=num_class, widen_factor=1)
+def WRN10_1(num_classes=10):
+    return WideResNet(depth=10, num_classes=num_classes, widen_factor=1)
 
 
-def WRN40_1(num_class=10):
-    return WideResNet(depth=40, num_classes=num_class, widen_factor=1)
+def WRN40_1(num_classes=10):
+    return WideResNet(depth=40, num_classes=num_classes, widen_factor=1)
 
 
-def WRN40_4(num_class=10):
-    return WideResNet(depth=40, num_classes=num_class, widen_factor=4)
+def WRN40_4(num_classes=10):
+    return WideResNet(depth=40, num_classes=num_classes, widen_factor=4)
