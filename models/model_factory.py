@@ -52,6 +52,7 @@ model_dict = {
     "vgg16_bn": models.vision.vgg16_bn,
     "vgg19": models.vision.vgg19,
     "vgg19_bn": models.vision.vgg19_bn,
+    "efficientnet": models.standard.EfficientNetB0,
 }
 
 

@@ -5,7 +5,7 @@ from data_loader import get_cifar
 from models.model_factory import create_cnn_model, is_resnet
 from teacher_assistant import run_teacher_assistant
 
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 
 
 def parse_arguments():
