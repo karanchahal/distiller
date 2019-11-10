@@ -1,0 +1,1 @@
+from teacher_assistant.train import run_teacher_assistant

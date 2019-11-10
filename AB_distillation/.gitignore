@@ -1,0 +1,12 @@
+checkpoint/
+.idea/
+results/
+models/__pycache__
+*__pycache__
+paper/
+results_squad.zip
+module/
+seeds/WRN22*
+seeds/WRN16*
+seeds/
+*.pyc

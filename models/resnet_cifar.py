@@ -1,15 +1,18 @@
-"""
+'''
 resnet for cifar in pytorch
 
 Reference:
 [1] K. He, X. Zhang, S. Ren, and J. Sun. Deep residual learning for image recognition. In CVPR, 2016.
 [2] K. He, X. Zhang, S. Ren, and J. Sun. Identity mappings in deep residual networks. In ECCV, 2016.
-"""
+'''
+
+import torch
 import torch.nn as nn
 import math
 
 
 def conv3x3(in_planes, out_planes, stride=1):
+    " 3x3 convolution with padding "
     return nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=1, bias=False)
 
 
@@ -267,23 +270,8 @@ class PreAct_ResNet_Cifar(nn.Module):
         return x
 
 
-def resnet14_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [2, 2, 2], **kwargs)
-    return model
-
-
-def resnet8_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [1, 1, 1], **kwargs)
-    return model
-
-
 def resnet20_cifar(**kwargs):
     model = ResNet_Cifar(BasicBlock, [3, 3, 3], **kwargs)
-    return model
-
-
-def resnet26_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [4, 4, 4], **kwargs)
     return model
 
 
@@ -335,15 +323,3 @@ def preact_resnet164_cifar(**kwargs):
 def preact_resnet1001_cifar(**kwargs):
     model = PreAct_ResNet_Cifar(PreActBottleneck, [111, 111, 111], **kwargs)
     return model
-
-
-resnet_book = {
-    '8': resnet8_cifar,
-    '14': resnet14_cifar,
-    '20': resnet20_cifar,
-    '26': resnet26_cifar,
-    '32': resnet32_cifar,
-    '44': resnet44_cifar,
-    '56': resnet56_cifar,
-    '110': resnet110_cifar,
-}
