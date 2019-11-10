@@ -14,7 +14,7 @@ def get_cifar(num_classes=100, dataset_dir='./data', batch_size=128, crop=True):
     :return:
     """
     normalize = transforms.Normalize(
-        (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+        (0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
     simple_transform = transforms.Compose([transforms.ToTensor(), normalize])
 
     if crop is True:
