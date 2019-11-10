@@ -5,6 +5,7 @@ Reference:
 [1] S. Xie, G. Ross, P. Dollar, Z. Tu and K. He Aggregated residual transformations for deep neural networks. In CVPR, 2017
 """
 
+import torch
 import torch.nn as nn
 import math
 
@@ -16,13 +17,12 @@ class Bottleneck(nn.Module):
         super(Bottleneck, self).__init__()
         D = int(planes * (baseWidth / 64.))
         C = cardinality
-        self.conv1 = nn.Conv2d(inplanes, D * C, kernel_size=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(D * C)
-        self.conv2 = nn.Conv2d(D * C, D * C, kernel_size=3,
-                               stride=stride, padding=1, groups=C, bias=False)
-        self.bn2 = nn.BatchNorm2d(D * C)
-        self.conv3 = nn.Conv2d(D * C, planes * 4, kernel_size=1, bias=False)
-        self.bn3 = nn.BatchNorm2d(planes * 4)
+        self.conv1 = nn.Conv2d(inplanes, D*C, kernel_size=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(D*C)
+        self.conv2 = nn.Conv2d(D*C, D*C, kernel_size=3, stride=stride, padding=1, groups=C, bias=False)
+        self.bn2 = nn.BatchNorm2d(D*C)
+        self.conv3 = nn.Conv2d(D*C, planes*4, kernel_size=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(planes*4)
         self.relu = nn.ReLU(inplace=True)
         self.downsample = downsample
         self.stride = stride
@@ -43,7 +43,7 @@ class Bottleneck(nn.Module):
 
         if self.downsample is not None:
             residual = self.downsample(x)
-
+        
         if residual.size() != out.size():
             print(out.size(), residual.size())
         out += residual
@@ -59,8 +59,7 @@ class ResNeXt_Cifar(nn.Module):
         self.inplanes = 64
         self.cardinality = cardinality
         self.baseWidth = baseWidth
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3,
-                               stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.relu = nn.ReLU(inplace=True)
         self.layer1 = self._make_layer(block, 64, layers[0])
@@ -81,19 +80,16 @@ class ResNeXt_Cifar(nn.Module):
         downsample = None
         if stride != 1 or self.inplanes != planes * block.expansion:
             downsample = nn.Sequential(
-                nn.Conv2d(self.inplanes, planes * block.expansion,
-                          kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(self.inplanes, planes * block.expansion, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(planes * block.expansion)
             )
 
         layers = []
-        layers.append(block(self.inplanes, planes, self.cardinality,
-                            self.baseWidth, stride, downsample))
+        layers.append(block(self.inplanes, planes, self.cardinality, self.baseWidth, stride, downsample))
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
-            layers.append(block(self.inplanes, planes,
-                                self.cardinality, self.baseWidth))
-
+            layers.append(block(self.inplanes, planes, self.cardinality, self.baseWidth))
+        
         return nn.Sequential(*layers)
 
     def forward(self, x):
@@ -115,6 +111,12 @@ class ResNeXt_Cifar(nn.Module):
 def resneXt_cifar(depth, cardinality, baseWidth, **kwargs):
     assert (depth - 2) % 9 == 0
     n = (depth - 2) / 9
-    model = ResNeXt_Cifar(
-        Bottleneck, [n, n, n], cardinality, baseWidth, **kwargs)
+    model = ResNeXt_Cifar(Bottleneck, [n, n, n], cardinality, baseWidth, **kwargs)
     return model
+
+
+if __name__ == '__main__':
+    net = resneXt_cifar(29, 16, 64)
+    y = net(torch.randn(1, 3, 32, 32))
+    print(net)
+    print(y.size())

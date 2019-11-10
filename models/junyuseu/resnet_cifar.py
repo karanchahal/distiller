@@ -333,3 +333,10 @@ def preact_resnet164_cifar(**kwargs):
 def preact_resnet1001_cifar(**kwargs):
     model = PreAct_ResNet_Cifar(PreActBottleneck, [111, 111, 111], **kwargs)
     return model
+
+
+if __name__ == '__main__':
+    net = resnet20_cifar()
+    y = net(torch.randn(1, 3, 64, 64))
+    print(net)
+    print(y.size())
