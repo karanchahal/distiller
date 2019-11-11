@@ -119,8 +119,8 @@ class NO_KD_Cifar(pl.LightningModule):
 
         trainset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=True,
 												 download=True, transform=transform_train)
-		
-        return DataLoader(trainset, batch_size=self.hparams.batch_size)
+        #dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=4)
 
     @pl.data_loader
     def val_dataloader(self):
@@ -132,8 +132,8 @@ class NO_KD_Cifar(pl.LightningModule):
 
         valset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-
-        return DataLoader(valset, batch_size=self.hparams.batch_size)
+        #dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
+        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=4)
 
     @pl.data_loader
     def test_dataloader(self):
@@ -145,8 +145,8 @@ class NO_KD_Cifar(pl.LightningModule):
 
         testset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-
-        return DataLoader(testset, batch_size=self.hparams.batch_size)
+        #dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
+        return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4)
 
 
     @staticmethod
@@ -158,10 +158,10 @@ class NO_KD_Cifar(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser])
         parser.add_argument('--dataset', default='cifar10', type=str, help='dataset. can be either cifar10 or cifar100')
         parser.add_argument('--batch-size', default=128, type=int, help='batch_size')
-        parser.add_argument('--learning-rate', default=0.1, type=float, help='initial learning rate')
+        parser.add_argument('--learning-rate', default=0.001, type=float, help='initial learning rate')
         parser.add_argument('--momentum', default=0.9, type=float,  help='SGD momentum')
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
-        parser.add_argument('--model', default='resnet8', type=str, help='teacher student name')
+        parser.add_argument('--model', default='resnet110', type=str, help='teacher student name')
         parser.add_argument('--cuda', default=False, type=str2bool, help='whether or not use cuda(train on GPU)')
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
 

@@ -4,18 +4,24 @@ This file runs the main training/val loop, etc... using Lightning Trainer
 from pytorch_lightning import Trainer
 from argparse import ArgumentParser
 from research_seed.baselines.no_kd_baseline.no_kd_baseline import NO_KD_Cifar
-
+from pytorch_lightning.logging import TestTubeLogger
 
 def main(hparams):
     # init module
     model = NO_KD_Cifar(hparams)
-
+    logger = TestTubeLogger(
+       save_dir='./lightning_logs/',
+       version=1  # An existing version with a saved checkpoint
+    )
     # most basic trainer, uses good defaults
     trainer = Trainer(
         max_nb_epochs=hparams.epochs,
-        gpus=hparams.gpus,
+        gpus=1,
         nb_gpu_nodes=hparams.nodes,
         early_stop_callback=None,
+        logger=logger,
+        default_save_path='./lightning_logs/',
+        #distributed_backend='ddp',
     )
 
     trainer.fit(model)
@@ -23,7 +29,7 @@ def main(hparams):
 
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
-    parser.add_argument('--epochs', default=50, type=int,  help='number of total epochs to run')
+    parser.add_argument('--epochs', default=100, type=int,  help='number of total epochs to run')
     parser.add_argument('--gpus', type=str, default=None)
     parser.add_argument('--nodes', type=int, default=1)
 
