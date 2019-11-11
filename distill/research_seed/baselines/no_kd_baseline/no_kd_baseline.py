@@ -88,6 +88,8 @@ class NO_KD_Cifar(pl.LightningModule):
             'val_accuracy': float(self.val_num_correct*100/self.val_step)
         }
 
+        self.scheduler.step(np.around(avg_loss.item(),2))
+
         # reset logging stuff
         self.train_step = 0
         self.train_num_correct = 0
@@ -99,7 +101,9 @@ class NO_KD_Cifar(pl.LightningModule):
     def configure_optimizers(self):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
-        return torch.optim.Adam(self.model.parameters(), lr=self.hparams.learning_rate)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hparams.learning_rate)
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience=5,factor=0.5,verbose=True)
+        return optimizer
 
     @pl.data_loader
     def train_dataloader(self):
@@ -152,7 +156,7 @@ class NO_KD_Cifar(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser])
         parser.add_argument('--dataset', default='cifar10', type=str, help='dataset. can be either cifar10 or cifar100')
         parser.add_argument('--batch-size', default=128, type=int, help='batch_size')
-        parser.add_argument('--learning-rate', default=0.001, type=float, help='initial learning rate')
+        parser.add_argument('--learning-rate', default=0.1, type=float, help='initial learning rate')
         parser.add_argument('--momentum', default=0.9, type=float,  help='SGD momentum')
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
         parser.add_argument('--model', default='resnet8', type=str, help='teacher student name')
