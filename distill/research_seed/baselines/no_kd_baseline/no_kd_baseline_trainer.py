@@ -14,7 +14,8 @@ def main(hparams):
     trainer = Trainer(
         max_nb_epochs=hparams.epochs,
         gpus=hparams.gpus,
-        nb_gpu_nodes=hparams.nodes
+        nb_gpu_nodes=hparams.nodes,
+        early_stop_callback=None,
     )
 
     trainer.fit(model)
@@ -22,7 +23,7 @@ def main(hparams):
 
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
-    parser.add_argument('--epochs', default=50, type=int,  help='number of total epochs to run')
+    parser.add_argument('--epochs', default=700, type=int,  help='number of total epochs to run')
     parser.add_argument('--gpus', type=str, default=None)
     parser.add_argument('--nodes', type=int, default=1)
 

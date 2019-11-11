@@ -152,7 +152,7 @@ class NO_KD_Cifar(pl.LightningModule):
         parser = ArgumentParser(parents=[parent_parser])
         parser.add_argument('--dataset', default='cifar10', type=str, help='dataset. can be either cifar10 or cifar100')
         parser.add_argument('--batch-size', default=128, type=int, help='batch_size')
-        parser.add_argument('--learning-rate', default=0.1, type=float, help='initial learning rate')
+        parser.add_argument('--learning-rate', default=0.001, type=float, help='initial learning rate')
         parser.add_argument('--momentum', default=0.9, type=float,  help='SGD momentum')
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
         parser.add_argument('--model', default='resnet8', type=str, help='teacher student name')
