@@ -11,6 +11,7 @@ from torchvision.datasets import MNIST
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
 from research_seed.baselines.no_kd_baseline.model.model_factory import create_cnn_model, is_resnet
+import torch.optim as optim
 import pytorch_lightning as pl
 
 def str2bool(v):
