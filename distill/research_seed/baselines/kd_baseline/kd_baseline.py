@@ -22,8 +22,9 @@ def str2bool(v):
 
 def load_model_chk(model, path):
     chkp = torch.load(path)
-    print(chkp.keys())
-
+    model.load_state_dict(chkp['state_dict'])
+    return model
+    
 class KD_Cifar(pl.LightningModule):
 
     def __init__(self, hparams):
