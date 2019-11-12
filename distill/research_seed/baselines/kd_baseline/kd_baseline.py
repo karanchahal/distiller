@@ -24,7 +24,7 @@ def str2bool(v):
 def load_model_chk(model, path):
     chkp = torch.load(path)
     new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
+    for k, v in chkp['state_dict'].items():
         name = k[6:] # remove `model.`
         new_state_dict[name] = v
     model.load_state_dict(new_state_dict)
