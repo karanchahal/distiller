@@ -11,7 +11,7 @@ def main(hparams):
     model = NO_KD_Cifar(hparams)
     logger = TestTubeLogger(
        save_dir='./lightning_logs/',
-       version=1  # An existing version with a saved checkpoint
+       version=2  # An existing version with a saved checkpoint
     )
     # most basic trainer, uses good defaults
     trainer = Trainer(

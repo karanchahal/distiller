@@ -111,6 +111,7 @@ class NO_KD_Cifar(pl.LightningModule):
     def train_dataloader(self):
         # REQUIRED
         transform_train = transforms.Compose([
+            transforms.Pad(4, padding_mode="reflect"),
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
