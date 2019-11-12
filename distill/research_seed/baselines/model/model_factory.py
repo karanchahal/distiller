@@ -1,5 +1,5 @@
-from research_seed.baselines.no_kd_baseline.model.resnet_cifar import *
-from research_seed.baselines.no_kd_baseline.model.plain_cnn_cifar import *
+from research_seed.baselines.model.resnet_cifar import *
+from research_seed.baselines.model.plain_cnn_cifar import *
 
 
 def is_resnet(name):
