@@ -9,18 +9,18 @@ from pytorch_lightning.logging import TestTubeLogger
 def main(hparams):
     # init module
     model = KD_Cifar(hparams)
-    logger = TestTubeLogger(
-       save_dir='./lightning_logs/',
-       version=2  # An existing version with a saved checkpoint
-    )
+    # logger = TestTubeLogger(
+    #    save_dir='./lightning_logs/',
+    #    version=2  # An existing version with a saved checkpoint
+    # )
     # most basic trainer, uses good defaults
     trainer = Trainer(
         max_nb_epochs=hparams.epochs,
         gpus=1,
         nb_gpu_nodes=hparams.nodes,
         early_stop_callback=None,
-        logger=logger,
-        default_save_path='./lightning_logs/',
+        # logger=logger,
+        # default_save_path='./lightning_logs/',
         #distributed_backend='ddp',
     )
 

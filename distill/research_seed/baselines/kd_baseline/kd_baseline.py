@@ -20,6 +20,10 @@ def str2bool(v):
 	else:
 		return False
 
+def load_model_chk(model, path):
+    chkp = torch.load(path)
+    print(chkp.keys())
+
 class KD_Cifar(pl.LightningModule):
 
     def __init__(self, hparams):
