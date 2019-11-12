@@ -24,7 +24,6 @@ class TrainManager(object):
                  test_loader=None, train_config={}):
         self.student = student
         self.teacher = teacher
-        self.have_teacher = bool(self.teacher)
         self.device = train_config["device"]
         self.name = train_config["name"]
         self.optimizer = optim.SGD(self.student.parameters(),
@@ -33,7 +32,7 @@ class TrainManager(object):
                                    momentum=train_config["momentum"],
                                    weight_decay=train_config["weight_decay"])
 
-        if self.have_teacher:
+        if self.teacher:
             self.teacher.eval()
             self.teacher.train(mode=False)
 
@@ -59,7 +58,7 @@ class TrainManager(object):
             loss_SL = self.criterion(output, target)
             loss = loss_SL
 
-            if self.have_teacher:
+            if self.teacher:
                 teacher_outputs = self.teacher(data)
                 # Knowledge Distillation Loss
                 loss_KD = nn.KLDivLoss()(F.log_softmax(output / T, dim=1),
@@ -152,8 +151,6 @@ config = {
     "lambda_student": 0.4,
     # {"_type": "choice", "_value": [1, 2, 5, 10, 15, 20]},
     "T_student": 10,
-
-
 }
 
 
@@ -171,28 +168,30 @@ def run_teacher_assistant(student_model, ta_model, teacher_model, **params):
     }
     train_loader = params["train_loader"]
     test_loader = params["test_loader"]
-    # Train Teacher if provided a teacher, otherwise it"s a normal training using only cross entropy loss
-    # This is for training single models(NOKD in paper) for baselines models (or training the first teacher)
-    if params["teacher"]:
-        if params["teacher_checkpoint"]:
-            print("---------- Loading Teacher -------")
-            teacher_model = load_checkpoint(
-                teacher_model, params["teacher_checkpoint"])
-            best_teacher_acc = 0
-        else:
-            print("---------- Training Teacher -------")
-            teacher_train_config = copy.deepcopy(train_config)
-            teacher_name = params["teacher"]
-            best_teacher = f"{teacher_name}_{trial_id}_best.pth.tar"
-            teacher_train_config["name"] = teacher_name
-            teacher_trainer = TrainManager(teacher_model,
-                                           teacher=None,
-                                           train_loader=train_loader,
-                                           test_loader=test_loader,
-                                           train_config=teacher_train_config)
-            best_teacher_acc = teacher_trainer.train()
-            teacher_model = load_checkpoint(
-                teacher_model, os.path.join("./", best_teacher))
+
+    # Teacher training
+    teacher_train_config = copy.deepcopy(train_config)
+    teacher_name = params["teacher"]
+    best_teacher = f"{teacher_name}_{trial_id}_best.pth.tar"
+    teacher_train_config["name"] = teacher_name
+    if params["teacher_checkpoint"]:
+        print("---------- Loading Teacher -------")
+
+        teacher_model = load_checkpoint(
+            teacher_model, params["teacher_checkpoint"])
+
+    teacher_trainer = TrainManager(teacher_model,
+                                   teacher=None,
+                                   train_loader=train_loader,
+                                   test_loader=test_loader,
+                                   train_config=teacher_train_config)
+    if params["teacher_checkpoint"]:
+        best_teacher_acc = teacher_trainer.validate()
+    else:
+        print("---------- Training Teacher -------")
+        best_teacher_acc = teacher_trainer.train()
+        teacher_model = load_checkpoint(
+            teacher_model, os.path.join("./", best_teacher))
 
     # Teaching Assistant training
     print("---------- Training TA -------")
@@ -222,6 +221,6 @@ def run_teacher_assistant(student_model, ta_model, teacher_model, **params):
                                    train_config=student_train_config)
     best_student_acc = student_trainer.train()
 
-    print(f"Final results teacher: {best_teacher_acc}")
-    print(f"Final results ta: {best_ta_acc}")
-    print(f"Final results student: {best_student_acc}")
+    print(f"Final results teacher {teacher_name}: {best_teacher_acc}")
+    print(f"Final results ta {ta_name}: {best_ta_acc}")
+    print(f"Final results student {student_name}: {best_student_acc}")

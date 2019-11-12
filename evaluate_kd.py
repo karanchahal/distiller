@@ -23,7 +23,7 @@ def parse_arguments():
                         type=float, help="SGD momentum")
     parser.add_argument("--weight-decay", default=1e-4,
                         type=float, help="SGD weight decay (default: 1e-4)")
-    parser.add_argument("--teacher", default="", type=str,
+    parser.add_argument("--teacher", default="WRN22_4", type=str,
                         help="teacher student name")
     parser.add_argument("--student", "--model", default="resnet18",
                         type=str, help="teacher student name")
@@ -43,7 +43,7 @@ def str2bool(v):
 
 def test_ta(dataset, params):
     # Arguments specifically for the teacher assistant approach
-    params["ta"] = "WRN16_2"
+    params["ta"] = "resnet14"
     use_cuda = params["cuda"]
     ta_model = create_cnn_model(params["ta"], dataset, use_cuda=use_cuda)
     run_teacher_assistant(student_model, ta_model, teacher_model, **params)
