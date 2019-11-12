@@ -67,7 +67,7 @@ class KD_Cifar(pl.LightningModule):
     def forward(self, x, mode):
         if mode == 'student':
             return self.student(x)
-        else if mode == 'teacher':
+        elif mode == 'teacher':
             return self.teacher(x)
         else:
             raise ValueError("mode should be teacher or student")
