@@ -13,6 +13,7 @@ from research_seed.baselines.model.model_factory import create_cnn_model, is_res
 import torch.optim as optim
 import pytorch_lightning as pl
 import numpy as np
+from collections import OrderedDict
 
 def str2bool(v):
 	if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -22,9 +23,13 @@ def str2bool(v):
 
 def load_model_chk(model, path):
     chkp = torch.load(path)
-    model.load_state_dict(chkp['state_dict'])
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[6:] # remove `model.`
+        new_state_dict[name] = v
+    model.load_state_dict(new_state_dict)
     return model
-    
+
 class KD_Cifar(pl.LightningModule):
 
     def __init__(self, hparams):
