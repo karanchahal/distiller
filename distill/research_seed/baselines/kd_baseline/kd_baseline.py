@@ -35,7 +35,7 @@ class KD_Cifar(pl.LightningModule):
         self.teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset, use_cuda=hparams.cuda)
         
         # self.student = load_student_chk(student, hparams.path_to_student)
-        self.teacher = load_model_chk(teacher, hparams.path_to_teacher)
+        self.teacher = load_model_chk(self.teacher, hparams.path_to_teacher)
 
         self.teacher.eval()
         self.student.train()
