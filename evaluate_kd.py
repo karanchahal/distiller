@@ -43,7 +43,7 @@ def str2bool(v):
 
 def test_ta(dataset, params):
     # Arguments specifically for the teacher assistant approach
-    params["ta"] = "resnet44"
+    params["ta"] = "WRN16_2"
     use_cuda = params["cuda"]
     ta_model = create_cnn_model(params["ta"], dataset, use_cuda=use_cuda)
     run_teacher_assistant(student_model, ta_model, teacher_model, **params)

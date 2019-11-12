@@ -28,9 +28,11 @@ class TrainManager(object):
         self.device = train_config["device"]
         self.name = train_config["name"]
         self.optimizer = optim.SGD(self.student.parameters(),
+                                   nesterov=True,
                                    lr=train_config["learning_rate"],
                                    momentum=train_config["momentum"],
                                    weight_decay=train_config["weight_decay"])
+
         if self.have_teacher:
             self.teacher.eval()
             self.teacher.train(mode=False)
@@ -87,14 +89,14 @@ class TrainManager(object):
 
             self.train_single_epoch(lambda_, T, epoch)
 
-            val_acc = self.validate(step=epoch)
+            val_acc = self.validate()
             if val_acc > best_acc:
                 best_acc = val_acc
                 self.save(epoch, name=f"{self.name}_{trial_id}_best.pth.tar")
 
         return best_acc
 
-    def validate(self, step=0):
+    def validate(self):
         self.student.eval()
         with torch.no_grad():
             correct = 0
@@ -150,6 +152,8 @@ config = {
     "lambda_student": 0.4,
     # {"_type": "choice", "_value": [1, 2, 5, 10, 15, 20]},
     "T_student": 10,
+
+
 }
 
 
@@ -180,7 +184,7 @@ def run_teacher_assistant(student_model, ta_model, teacher_model, **params):
             teacher_train_config = copy.deepcopy(train_config)
             teacher_name = params["teacher"]
             best_teacher = f"{teacher_name}_{trial_id}_best.pth.tar"
-            teacher_train_config["name"] = params["teacher"]
+            teacher_train_config["name"] = teacher_name
             teacher_trainer = TrainManager(teacher_model,
                                            teacher=None,
                                            train_loader=train_loader,
@@ -194,8 +198,9 @@ def run_teacher_assistant(student_model, ta_model, teacher_model, **params):
     print("---------- Training TA -------")
 
     ta_train_config = copy.deepcopy(train_config)
-    ta_name = params["teacher"]
+    ta_name = params["ta"]
     best_ta = f"{ta_name}_{trial_id}_best.pth.tar"
+    ta_train_config["name"] = ta_name
     ta_trainer = TrainManager(ta_model,
                               teacher=teacher_model,
                               train_loader=train_loader,
@@ -207,7 +212,9 @@ def run_teacher_assistant(student_model, ta_model, teacher_model, **params):
 
     # Student training
     print("---------- Training Student -------")
+    student_name = params["student"]
     student_train_config = copy.deepcopy(train_config)
+    student_train_config["name"] = student_name
     student_trainer = TrainManager(student_model,
                                    teacher=ta_model,
                                    train_loader=train_loader,
