@@ -2,8 +2,9 @@ import argparse
 import torch
 
 from data_loader import get_cifar
-from models.model_factory import create_cnn_model, is_resnet
+from models.model_factory import create_cnn_model
 from teacher_assistant import run_teacher_assistant
+from ab_distiller import run_ab_distillation
 
 BATCH_SIZE = 128
 
@@ -49,6 +50,20 @@ def test_ta(dataset, params):
     run_teacher_assistant(student_model, ta_model, teacher_model, **params)
 
 
+def test_ab(dataset, params):
+    # Model
+
+    # Teacher network
+    t_net = create_cnn_model("WRN22_4", dataset, use_cuda=args.cuda)
+    model_ckp = torch.load("best_teacher_ab_95430.pth")
+    t_net.load_state_dict(model_ckp["model_state_dict"])
+
+    # Student network
+    s_net = create_cnn_model("WRN16_2", dataset, use_cuda=args.cuda)
+    # Arguments specifically for the ab approach
+    run_ab_distillation(s_net, t_net, **params)
+
+
 if __name__ == "__main__":
     args = parse_arguments()
     dataset = args.dataset
@@ -74,4 +89,5 @@ if __name__ == "__main__":
         "test_loader": test_loader,
     }
 
-    test_ta(dataset, params)
+    # test_ta(dataset, params)
+    test_ab(dataset, params)

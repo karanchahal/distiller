@@ -19,7 +19,8 @@ from model.embedding import LinearEmbedding
 
 
 parser = argparse.ArgumentParser()
-LookupChoices = type('', (argparse.Action, ), dict(__call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
+LookupChoices = type('', (argparse.Action, ), dict(
+    __call__=lambda a, p, n, v, o: setattr(n, a.dest, a.choices[v])))
 
 parser.add_argument('--dataset',
                     choices=dict(cub200=dataset.CUB2011Metric,
@@ -68,7 +69,8 @@ parser.add_argument('--l2normalize', choices=['true', 'false'], default='true')
 parser.add_argument('--embedding_size', default=128, type=int)
 
 parser.add_argument('--teacher_load', default=None, required=True)
-parser.add_argument('--teacher_l2normalize', choices=['true', 'false'], default='true')
+parser.add_argument('--teacher_l2normalize',
+                    choices=['true', 'false'], default='true')
 parser.add_argument('--teacher_embedding_size', default=128, type=int)
 
 parser.add_argument('--lr', default=1e-4, type=float)
@@ -123,9 +125,12 @@ test_transform = transforms.Compose([
     transforms.ToTensor(),
 ])
 
-dataset_train = opts.dataset(opts.data, train=True, transform=train_transform, download=True)
-dataset_train_eval = opts.dataset(opts.data, train=True, transform=test_transform, download=True)
-dataset_eval = opts.dataset(opts.data, train=False, transform=test_transform, download=True)
+dataset_train = opts.dataset(
+    opts.data, train=True, transform=train_transform, download=True)
+dataset_train_eval = opts.dataset(
+    opts.data, train=True, transform=test_transform, download=True)
+dataset_eval = opts.dataset(opts.data, train=False,
+                            transform=test_transform, download=True)
 
 print("Number of images in Training Set: %d" % len(dataset_train))
 print("Number of images in Test set: %d" % len(dataset_eval))
@@ -157,12 +162,14 @@ student = student.cuda()
 teacher = teacher.cuda()
 
 optimizer = optim.Adam(student.parameters(), lr=opts.lr, weight_decay=1e-5)
-lr_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=opts.lr_decay_epochs, gamma=opts.lr_decay_gamma)
+lr_scheduler = optim.lr_scheduler.MultiStepLR(
+    optimizer, milestones=opts.lr_decay_epochs, gamma=opts.lr_decay_gamma)
 
 dist_criterion = RkdDistance()
 angle_criterion = RKdAngle()
 dark_criterion = HardDarkRank(alpha=opts.dark_alpha, beta=opts.dark_beta)
-triplet_criterion = L2Triplet(sampler=opts.triplet_sample(), margin=opts.triplet_margin)
+triplet_criterion = L2Triplet(
+    sampler=opts.triplet_sample(), margin=opts.triplet_margin)
 at_criterion = AttentionTransfer()
 
 
@@ -183,15 +190,19 @@ def train(loader, ep):
         images, labels = images.cuda(), labels.cuda()
 
         with torch.no_grad():
-            t_b1, t_b2, t_b3, t_b4, t_pool, t_e = teacher(teacher_normalize(images), True)
+            t_b1, t_b2, t_b3, t_b4, t_pool, t_e = teacher(
+                teacher_normalize(images), True)
 
         if isinstance(student.base, backbone.GoogleNet):
-            assert (opts.at_ratio == 0), "AttentionTransfer cannot be applied on GoogleNet at current implementation."
+            assert (
+                opts.at_ratio == 0), "AttentionTransfer cannot be applied on GoogleNet at current implementation."
             e = student(student_normalize(images))
             at_loss = torch.zeros(1, device=e.device)
         else:
             b1, b2, b3, b4, pool, e = student(student_normalize(images), True)
-            at_loss = opts.at_ratio * (at_criterion(b2, t_b2) + at_criterion(b3, t_b3) + at_criterion(b4, t_b4))
+            at_loss = opts.at_ratio * \
+                (at_criterion(b2, t_b2) +
+                 at_criterion(b3, t_b3) + at_criterion(b4, t_b4))
 
         triplet_loss = opts.triplet_ratio * triplet_criterion(e, labels)
         dist_loss = opts.dist_ratio * dist_criterion(e, t_e)
@@ -213,9 +224,10 @@ def train(loader, ep):
 
         train_iter.set_description("[Train][Epoch %d] Triplet: %.5f, Dist: %.5f, Angle: %.5f, Dark: %5f, At: %5f" %
                                    (ep, triplet_loss.item(), dist_loss.item(), angle_loss.item(), dark_loss.item(), at_loss.item()))
-    print('[Epoch %d] Loss: %.5f, Triplet: %.5f, Dist: %.5f, Angle: %.5f, Dark: %.5f At: %.5f\n' %\
+    print('[Epoch %d] Loss: %.5f, Triplet: %.5f, Dist: %.5f, Angle: %.5f, Dark: %.5f At: %.5f\n' %
           (ep, torch.Tensor(loss_all).mean(), torch.Tensor(triplet_loss_all).mean(),
-           torch.Tensor(dist_loss_all).mean(), torch.Tensor(angle_loss_all).mean(), torch.Tensor(dark_loss_all).mean(),
+           torch.Tensor(dist_loss_all).mean(), torch.Tensor(
+               angle_loss_all).mean(), torch.Tensor(dark_loss_all).mean(),
            torch.Tensor(at_loss_all).mean()))
 
 
@@ -247,7 +259,7 @@ eval(teacher, teacher_normalize, loader_eval, 0)
 best_train_rec = eval(student, student_normalize, loader_train_eval, 0)
 best_val_rec = eval(student, student_normalize, loader_eval, 0)
 
-for epoch in range(1, opts.epochs+1):
+for epoch in range(1, opts.epochs + 1):
     train(loader_train_sample, epoch)
     train_recall = eval(student, student_normalize, loader_train_eval, epoch)
     val_recall = eval(student, student_normalize, loader_eval, epoch)
@@ -260,7 +272,8 @@ for epoch in range(1, opts.epochs+1):
         if opts.save_dir is not None:
             if not os.path.isdir(opts.save_dir):
                 os.mkdir(opts.save_dir)
-            torch.save(student.state_dict(), "%s/%s" % (opts.save_dir, "best.pth"))
+            torch.save(student.state_dict(), "%s/%s" %
+                       (opts.save_dir, "best.pth"))
 
     if opts.save_dir is not None:
         if not os.path.isdir(opts.save_dir):

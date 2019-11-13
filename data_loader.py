@@ -47,10 +47,10 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
                       download=True,
                       transform=test_transform)
 
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+    train_loader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                               num_workers=NUM_WORKERS,
+                                               pin_memory=True, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                               num_workers=NUM_WORKERS,
-                                              pin_memory=True, shuffle=True)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                             num_workers=NUM_WORKERS,
-                                             pin_memory=True, shuffle=False)
-    return trainloader, testloader
+                                              pin_memory=True, shuffle=False)
+    return train_loader, test_loader

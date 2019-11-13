@@ -38,13 +38,13 @@ class Active_Soft_WRN_norelu(nn.Module):
         self.Connect1 = nn.Sequential(*C1)
         self.Connect2 = nn.Sequential(*C2)
         self.Connect3 = nn.Sequential(*C3)
-        self.Connectors = nn.ModuleList([self.Connect1, self.Connect2, self.Connect3])
+        self.Connectors = nn.ModuleList(
+            [self.Connect1, self.Connect2, self.Connect3])
 
         self.t_net = t_net
         self.s_net = s_net
 
     def forward(self, x):
-
         # For teacher network
         self.res0_t = self.t_net.conv1(x)
 
@@ -129,7 +129,8 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
         self.Connect4 = nn.Sequential(*C4)
 
         self.Connectfc = nn.Linear(1280, 1000)
-        self.Connectors = nn.ModuleList([self.Connect1, self.Connect2, self.Connect3, self.Connect4, self.Connectfc])
+        self.Connectors = nn.ModuleList(
+            [self.Connect1, self.Connect2, self.Connect3, self.Connect4, self.Connectfc])
 
         self.t_net = t_net
         self.s_net = s_net
@@ -140,7 +141,8 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
     def forward(self, inputs, targets):
 
         # Teacher network
-        res0_t = self.t_net.maxpool(self.t_net.relu(self.t_net.bn1(self.t_net.conv1(inputs))))
+        res0_t = self.t_net.maxpool(self.t_net.relu(
+            self.t_net.bn1(self.t_net.conv1(inputs))))
 
         res1_t = self.t_net.layer1(res0_t)
         res2_t = self.t_net.layer2(res1_t)
@@ -151,7 +153,6 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
         out = self.t_net.avgpool(out)
         out = out.view(out.size(0), -1)
         out_t = self.t_net.fc(out)
-
 
         # Student network
         res1_s = self.s_net.features[0:4](inputs)
@@ -170,12 +171,15 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
         res3_s = self.s_net.features[14].conv[0:2](res3_s)
         res4_s = self.s_net.features[18][0:2](res4_s)
 
-
         # Activation transfer loss
-        loss_AT4 = ((self.Connect4(res4_s) > 0) ^ (res4_t > 0)).sum().float() / res4_t.nelement()
-        loss_AT3 = ((self.Connect3(res3_s) > 0) ^ (res3_t > 0)).sum().float() / res3_t.nelement()
-        loss_AT2 = ((self.Connect2(res2_s) > 0) ^ (res2_t > 0)).sum().float() / res2_t.nelement()
-        loss_AT1 = ((self.Connect1(res1_s) > 0) ^ (res1_t > 0)).sum().float() / res1_t.nelement()
+        loss_AT4 = ((self.Connect4(res4_s) > 0) ^ (
+            res4_t > 0)).sum().float() / res4_t.nelement()
+        loss_AT3 = ((self.Connect3(res3_s) > 0) ^ (
+            res3_t > 0)).sum().float() / res3_t.nelement()
+        loss_AT2 = ((self.Connect2(res2_s) > 0) ^ (
+            res2_t > 0)).sum().float() / res2_t.nelement()
+        loss_AT1 = ((self.Connect1(res1_s) > 0) ^ (
+            res1_t > 0)).sum().float() / res1_t.nelement()
 
         loss_AT4 = loss_AT4.unsqueeze(0).unsqueeze(1)
         loss_AT3 = loss_AT3.unsqueeze(0).unsqueeze(1)
@@ -185,10 +189,14 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
         # Alternative loss
         if self.stage1 is True:
             margin = 1.0
-            loss = self.criterion_active_L2(self.Connect4(res4_s), res4_t.detach(), margin) / self.batch_size
-            loss += self.criterion_active_L2(self.Connect3(res3_s), res3_t.detach(), margin) / self.batch_size / 2
-            loss += self.criterion_active_L2(self.Connect2(res2_s), res2_t.detach(), margin) / self.batch_size / 4
-            loss += self.criterion_active_L2(self.Connect1(res1_s), res1_t.detach(), margin) / self.batch_size / 8
+            loss = self.criterion_active_L2(self.Connect4(
+                res4_s), res4_t.detach(), margin) / self.batch_size
+            loss += self.criterion_active_L2(self.Connect3(res3_s),
+                                             res3_t.detach(), margin) / self.batch_size / 2
+            loss += self.criterion_active_L2(self.Connect2(res2_s),
+                                             res2_t.detach(), margin) / self.batch_size / 4
+            loss += self.criterion_active_L2(self.Connect1(res1_s),
+                                             res1_t.detach(), margin) / self.batch_size / 8
 
             loss /= 1000
 
@@ -205,15 +213,16 @@ class AB_distill_Resnet2mobilenetV2(nn.Module):
         # DTL (Distillation in Transfer Learning) loss
         if self.DTL is True:
             loss_DTL = torch.mean(torch.pow((out_t - torch.mean(out_t, 1, keepdim=True)).detach()
-                                           - (out_imagenet - torch.mean(out_imagenet, 1, keepdim=True)), 2)) * 10
+                                            - (out_imagenet - torch.mean(out_imagenet, 1, keepdim=True)), 2)) * 10
 
             loss_DTL = loss_DTL.unsqueeze(0).unsqueeze(1)
         else:
-            loss_DTL = torch.zeros(1,1).cuda()
+            loss_DTL = torch.zeros(1, 1).cuda()
 
         # Training accuracy
         _, predicted = torch.max(out_s.data, 1)
-        correct = predicted.eq(targets.data).sum().float().unsqueeze(0).unsqueeze(1)
+        correct = predicted.eq(targets.data).sum(
+        ).float().unsqueeze(0).unsqueeze(1)
 
         # Return all losses
         return torch.cat([loss, loss_CE, loss_DTL, loss_AT1, loss_AT2, loss_AT3, loss_AT4, correct], dim=1)
@@ -261,7 +270,8 @@ class AB_distill_Resnet2mobilenet(nn.Module):
         self.Connect4 = nn.Sequential(*C4)
 
         self.Connectfc = nn.Linear(1024, 1000)
-        self.Connectors = nn.ModuleList([self.Connect1, self.Connect2, self.Connect3, self.Connect4, self.Connectfc])
+        self.Connectors = nn.ModuleList(
+            [self.Connect1, self.Connect2, self.Connect3, self.Connect4, self.Connectfc])
 
         self.t_net = t_net
         self.s_net = s_net
@@ -275,7 +285,8 @@ class AB_distill_Resnet2mobilenet(nn.Module):
         targets = x[1]
 
         # Teacher network
-        res0_t = self.t_net.maxpool(self.t_net.relu(self.t_net.bn1(self.t_net.conv1(inputs))))
+        res0_t = self.t_net.maxpool(self.t_net.relu(
+            self.t_net.bn1(self.t_net.conv1(inputs))))
 
         res1_t = self.t_net.layer1(res0_t)
         res2_t = self.t_net.layer2(res1_t)
@@ -289,9 +300,12 @@ class AB_distill_Resnet2mobilenet(nn.Module):
 
         # Student network
         res1_s = self.s_net.model[3][:-1](self.s_net.model[0:3](inputs))
-        res2_s = self.s_net.model[5][:-1](self.s_net.model[4:5](F.relu(res1_s)))
-        res3_s = self.s_net.model[11][:-1](self.s_net.model[6:11](F.relu(res2_s)))
-        res4_s = self.s_net.model[13][:-1](self.s_net.model[12:13](F.relu(res3_s)))
+        res2_s = self.s_net.model[5][:-
+                                     1](self.s_net.model[4:5](F.relu(res1_s)))
+        res3_s = self.s_net.model[11][:-
+                                      1](self.s_net.model[6:11](F.relu(res2_s)))
+        res4_s = self.s_net.model[13][:-
+                                      1](self.s_net.model[12:13](F.relu(res3_s)))
 
         out = self.s_net.model[14](F.relu(res4_s))
         out = out.view(-1, 1024)
@@ -299,10 +313,14 @@ class AB_distill_Resnet2mobilenet(nn.Module):
         out_s = self.s_net.fc(out)
 
         # Activation transfer loss
-        loss_AT4 = ((self.Connect4(res4_s) > 0) ^ (res4_t > 0)).sum().float() / res4_t.nelement()
-        loss_AT3 = ((self.Connect3(res3_s) > 0) ^ (res3_t > 0)).sum().float() / res3_t.nelement()
-        loss_AT2 = ((self.Connect2(res2_s) > 0) ^ (res2_t > 0)).sum().float() / res2_t.nelement()
-        loss_AT1 = ((self.Connect1(res1_s) > 0) ^ (res1_t > 0)).sum().float() / res1_t.nelement()
+        loss_AT4 = ((self.Connect4(res4_s) > 0) ^ (
+            res4_t > 0)).sum().float() / res4_t.nelement()
+        loss_AT3 = ((self.Connect3(res3_s) > 0) ^ (
+            res3_t > 0)).sum().float() / res3_t.nelement()
+        loss_AT2 = ((self.Connect2(res2_s) > 0) ^ (
+            res2_t > 0)).sum().float() / res2_t.nelement()
+        loss_AT1 = ((self.Connect1(res1_s) > 0) ^ (
+            res1_t > 0)).sum().float() / res1_t.nelement()
 
         loss_AT4 = loss_AT4.unsqueeze(0).unsqueeze(1)
         loss_AT3 = loss_AT3.unsqueeze(0).unsqueeze(1)
@@ -312,17 +330,21 @@ class AB_distill_Resnet2mobilenet(nn.Module):
         # Alternative loss
         if self.stage1 is True:
             margin = 1.0
-            loss = self.criterion_active_L2(self.Connect4(res4_s), res4_t.detach(), margin) / self.batch_size
-            loss += self.criterion_active_L2(self.Connect3(res3_s), res3_t.detach(), margin) / self.batch_size / 2
-            loss += self.criterion_active_L2(self.Connect2(res2_s), res2_t.detach(), margin) / self.batch_size / 4
-            loss += self.criterion_active_L2(self.Connect1(res1_s), res1_t.detach(), margin) / self.batch_size / 8
+            loss = self.criterion_active_L2(self.Connect4(
+                res4_s), res4_t.detach(), margin) / self.batch_size
+            loss += self.criterion_active_L2(self.Connect3(res3_s),
+                                             res3_t.detach(), margin) / self.batch_size / 2
+            loss += self.criterion_active_L2(self.Connect2(res2_s),
+                                             res2_t.detach(), margin) / self.batch_size / 4
+            loss += self.criterion_active_L2(self.Connect1(res1_s),
+                                             res1_t.detach(), margin) / self.batch_size / 8
 
             loss /= 1000
 
             loss = loss.unsqueeze(0).unsqueeze(1)
         else:
             loss = torch.zeros(1, 1).cuda()
-            
+
         loss *= self.loss_multiplier
 
         # Cross-entropy loss
@@ -332,15 +354,15 @@ class AB_distill_Resnet2mobilenet(nn.Module):
         # DTL (Distillation in Transfer Learning) loss
         if self.DTL is True:
             loss_DTL = torch.mean(torch.pow((out_t - torch.mean(out_t, 1, keepdim=True)).detach()
-                                           - (out_imagenet - torch.mean(out_imagenet, 1, keepdim=True)), 2)) * 10
+                                            - (out_imagenet - torch.mean(out_imagenet, 1, keepdim=True)), 2)) * 10
             loss_DTL = loss_DTL.unsqueeze(0).unsqueeze(1)
         else:
-            loss_DTL = torch.zeros(1,1).cuda()
+            loss_DTL = torch.zeros(1, 1).cuda()
 
         # Training accuracy
         _, predicted = torch.max(out_s.data, 1)
-        correct = predicted.eq(targets.data).sum().float().unsqueeze(0).unsqueeze(1)
+        correct = predicted.eq(targets.data).sum(
+        ).float().unsqueeze(0).unsqueeze(1)
 
         # Return all losses
         return torch.cat([loss, loss_CE, loss_DTL, loss_AT4, loss_AT3, loss_AT2, loss_AT1, correct], dim=1)
-
