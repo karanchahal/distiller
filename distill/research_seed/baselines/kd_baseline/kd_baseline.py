@@ -157,7 +157,13 @@ class KD_Cifar(pl.LightningModule):
     def configure_optimizers(self):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
-        optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
+        if self.hparams.optim == 'adam':
+            optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
+        elif self.hparams.optim == 'sgd':
+            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
+        else:
+            raise ValueError('No such optimizer, please use adam or sgd')
+ 
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience=5,factor=0.5,verbose=True)
         return optimizer
 
@@ -223,6 +229,6 @@ class KD_Cifar(pl.LightningModule):
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
         parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
-
+        parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
         return parser
 

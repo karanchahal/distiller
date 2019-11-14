@@ -12,4 +12,4 @@
 cd /scratch/ksc487/distill/nyu-cv-project/distill/research_seed/baselines/kd_baseline
 conda activate light
 
-python kd_baseline_trainer.py --cuda True --student-model resnet8 --teacher-model resnet110 --path-to-teacher ../no_kd_baseline/lightning_logs/default/version_1/checkpoints/_ckpt_epoch_25.ckpt --version 16 --alpha 0 --temperature 20
+python kd_baseline_trainer.py --cuda True --student-model resnet8 --teacher-model resnet110 --path-to-teacher ../no_kd_baseline/lightning_logs/default/version_1/checkpoints/_ckpt_epoch_25.ckpt --version 20 --optim sgd --learning-rate 0.1 --weight-decay 1e-4 --momentum 0.9 --alpha 0.7 --temperature 1 --epochs 150

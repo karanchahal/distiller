@@ -27,6 +27,7 @@ def main(hparams):
         logger=logger,
         default_save_path='./lightning_logs/',
         distributed_backend=dist,
+        use_amp=True,
     )
 
     trainer.fit(model)
