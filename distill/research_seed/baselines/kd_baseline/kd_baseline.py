@@ -37,18 +37,16 @@ class KD_Cifar(pl.LightningModule):
         # not the best model...
         self.hparams = hparams
 
-        self.student = create_cnn_model(hparams.student_model, dataset=hparams.dataset, use_cuda=hparams.cuda)
-        self.teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset, use_cuda=hparams.cuda)
+        self.student = create_cnn_model(hparams.student_model, dataset=hparams.dataset)
+        self.teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset)
         
-        # self.student = load_student_chk(student, hparams.path_to_student)
+        # Loading from checkpoint
         self.teacher = load_model_chk(self.teacher, hparams.path_to_teacher)
 
         self.teacher.eval()
         self.student.train()
 
         self.criterion = nn.CrossEntropyLoss()
-
-        self.device = 'cuda:0' if hparams.cuda == True else 'cpu'
 
         self.train_step = 0
         self.train_num_correct = 0
@@ -91,7 +89,6 @@ class KD_Cifar(pl.LightningModule):
         y = y.to(self.device)
 
         y_teacher = self.forward(x, 'teacher')
-        #y_teacher = None
         y_student = self.forward(x, 'student')
         
         loss = self.loss_fn_kd(y_student, y, y_teacher)
@@ -105,13 +102,10 @@ class KD_Cifar(pl.LightningModule):
             'loss': loss,
             'log' : {
                 'train_loss' : loss.item(), 
-                'train_accuracy': float(self.train_num_correct*100/self.train_step)
+                'train_accuracy': float(self.train_num_correct*100/self.train_step),
             } 
         }
 
-    #def training_end(self, outputs):
-    #    self.student.eval()
-    #    return outputs
 
     def validation_step(self, batch, batch_idx):
         self.student.eval()
@@ -160,7 +154,8 @@ class KD_Cifar(pl.LightningModule):
         if self.hparams.optim == 'adam':
             optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
         elif self.hparams.optim == 'sgd':
-            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
+            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, 
+            weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
         else:
             raise ValueError('No such optimizer, please use adam or sgd')
  
@@ -169,45 +164,66 @@ class KD_Cifar(pl.LightningModule):
 
     @pl.data_loader
     def train_dataloader(self):
-        # REQUIRED
-        transform_train = transforms.Compose([
-            transforms.Pad(4, padding_mode="reflect"),
-            transforms.RandomCrop(32, padding=4),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
+
+        if self.hparams.dataset == 'cifar10' or self.hparams.dataset == 'cifar100':
+            transform_train = transforms.Compose([
+                transforms.Pad(4, padding_mode="reflect"),
+                transforms.RandomCrop(32, padding=4),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        else:
+            raise ValueError('Dataset not supported !')
 
         trainset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=True,
 												 download=True, transform=transform_train)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=4)
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+        else:
+            dist_sampler = None
+
+        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
     @pl.data_loader
     def val_dataloader(self):
-        # OPTIONAL
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
+        
+        if self.hparams.dataset == 'cifar10' or self.hparams.dataset == 'cifar100':
+            transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        else:
+            raise ValueError('Dataset not supported !')
 
         valset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
-        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=4)
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
+        else:
+            dist_sampler = None
+
+        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
     @pl.data_loader
     def test_dataloader(self):
-        # OPTIONAL
-        transform_test = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-        ])
+        
+        if self.hparams.dataset == 'cifar10' or self.hparams.dataset == 'cifar100':
+            transform_test = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+            ])
+        else:
+            raise ValueError('Dataset not supported !')
 
         testset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
-        return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4)
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
+        else:
+            dist_sampler = None
+
+        return DataLoader(testset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
 
     @staticmethod
@@ -222,13 +238,13 @@ class KD_Cifar(pl.LightningModule):
         parser.add_argument('--learning-rate', default=0.001, type=float, help='initial learning rate')
         parser.add_argument('--momentum', default=0.9, type=float,  help='SGD momentum')
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
-        parser.add_argument('--student-model', default='resnet110', type=str, help='teacher student name')
+        parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
+        parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
+        parser.add_argument('--num-workers', default=4, type=float,  help='Num workers for data loader')
+        parser.add_argument('--student-model', default='resnet8', type=str, help='teacher student name')
         parser.add_argument('--teacher-model', default='resnet110', type=str, help='teacher student name')
         parser.add_argument('--path-to-teacher', default='', type=str, help='teacher chkp path')
-        parser.add_argument('--cuda', default=False, type=str2bool, help='whether or not use cuda(train on GPU)')
-        parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
         parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
-        parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
         return parser
 

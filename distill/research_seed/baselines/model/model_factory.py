@@ -12,7 +12,7 @@ def is_resnet(name):
 	return name.startswith('resnet')
 
 
-def create_cnn_model(name, dataset="cifar100", use_cuda=False):
+def create_cnn_model(name, dataset="cifar100"):
 	"""
 	Create a student for training, given student name and dataset
 	:param name: name of the student. e.g., resnet110, resnet32, plane2, plane10, ...
@@ -32,8 +32,4 @@ def create_cnn_model(name, dataset="cifar100", use_cuda=False):
 		plane_model = ConvNetMaker(model_spec)
 		model = plane_model
 
-	# copy to cuda if activated
-	if use_cuda:
-		model = model.cuda()
-		
 	return model

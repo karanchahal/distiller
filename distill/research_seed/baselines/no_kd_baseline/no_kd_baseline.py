@@ -26,10 +26,8 @@ class NO_KD_Cifar(pl.LightningModule):
         super(NO_KD_Cifar, self).__init__()
         # not the best model...
         self.hparams = hparams
-        hparams.cuda= False
-        self.model = create_cnn_model(hparams.model, dataset=hparams.dataset, use_cuda=hparams.cuda)
+        self.model = create_cnn_model(hparams.model, dataset=hparams.dataset)
         self.criterion = nn.CrossEntropyLoss()
-        self.device = 'cuda:0' if hparams.cuda == True else 'cpu'
 
         self.train_step = 0
         self.train_num_correct = 0
@@ -42,9 +40,6 @@ class NO_KD_Cifar(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y = batch
-
-        #x = x.to(self.device)
-        #y = y.to(self.device)
 
         y_hat = self.forward(x)
         loss = self.criterion(y_hat, y)
@@ -65,9 +60,6 @@ class NO_KD_Cifar(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
-
-        #x = x.to(self.device)
-        #y = y.to(self.device)
 
         y_hat = self.forward(x)
         val_loss = self.criterion(y_hat, y)
@@ -103,7 +95,14 @@ class NO_KD_Cifar(pl.LightningModule):
     def configure_optimizers(self):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.hparams.learning_rate)
+        if self.hparams.optim == 'adam':
+            optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
+        elif self.hparams.optim == 'sgd':
+            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, 
+            weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
+        else:
+            raise ValueError('No such optimizer, please use adam or sgd')
+
         self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience=5,factor=0.5,verbose=True)
         return optimizer
 
@@ -124,7 +123,8 @@ class NO_KD_Cifar(pl.LightningModule):
             dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
         else:
             dist_sampler = None
-        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=4, sampler=dist_sampler)
+
+        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
     @pl.data_loader
     def val_dataloader(self):
@@ -140,7 +140,7 @@ class NO_KD_Cifar(pl.LightningModule):
             dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
         else:
             dist_sampler = None
-        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=4, sampler=dist_sampler)
+        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
     @pl.data_loader
     def test_dataloader(self):
@@ -155,9 +155,10 @@ class NO_KD_Cifar(pl.LightningModule):
         
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
-            return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4, sampler=dist_sampler)
-        else:    
-            return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4)
+        else:
+            dist_sampler = None
+            
+        return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
 
     @staticmethod
@@ -172,9 +173,10 @@ class NO_KD_Cifar(pl.LightningModule):
         parser.add_argument('--learning-rate', default=0.001, type=float, help='initial learning rate')
         parser.add_argument('--momentum', default=0.9, type=float,  help='SGD momentum')
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
-        parser.add_argument('--model', default='resnet110', type=str, help='teacher student name')
-        parser.add_argument('--cuda', default=False, type=str2bool, help='whether or not use cuda(train on GPU)')
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
+        parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
+        parser.add_argument('--num-workers', default=4, type=float,  help='Num workers for data loader')
+        parser.add_argument('--model', default='resnet110', type=str, help='teacher student name')
 
         return parser
 
