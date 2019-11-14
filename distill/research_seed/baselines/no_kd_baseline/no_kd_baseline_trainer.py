@@ -11,17 +11,22 @@ def main(hparams):
     model = NO_KD_Cifar(hparams)
     logger = TestTubeLogger(
        save_dir='./lightning_logs/',
-       version=2  # An existing version with a saved checkpoint
+       version=hparams.version  # An existing version with a saved checkpoint
     )
     # most basic trainer, uses good defaults
+    if hparams.gpus > 1:
+      dist = 'ddp'
+    else:
+      dist = None
+
     trainer = Trainer(
         max_nb_epochs=hparams.epochs,
-        gpus=1,
+        gpus=hparams.gpus,
         nb_gpu_nodes=hparams.nodes,
         early_stop_callback=None,
         logger=logger,
         default_save_path='./lightning_logs/',
-        #distributed_backend='ddp',
+        distributed_backend=dist,
     )
 
     trainer.fit(model)
@@ -30,9 +35,9 @@ def main(hparams):
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
     parser.add_argument('--epochs', default=100, type=int,  help='number of total epochs to run')
-    parser.add_argument('--gpus', type=str, default=None)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--nodes', type=int, default=1)
-
+    parser.add_argument('--version', type=int, required=True, help= "version number for experiment")
     # give the module a chance to add own params
     # good practice to define LightningModule speficic params in the module
     parser = NO_KD_Cifar.add_model_specific_args(parser)

@@ -66,13 +66,14 @@ class KD_Cifar(pl.LightningModule):
         NOTE: the KL Divergence for PyTorch comparing the softmaxs of teacher
         and student expects the input tensor to be log probabilities! See Issue #2
         """
+        
         alpha = self.hparams.alpha
         T = self.hparams.temperature
-        KD_loss = nn.KLDivLoss()(F.log_softmax(outputs/T, dim=1),
+        loss = nn.KLDivLoss()(F.log_softmax(outputs/T, dim=1),
                                 F.softmax(teacher_outputs/T, dim=1)) * (alpha * T * T) + \
                 F.cross_entropy(outputs, labels) * (1. - alpha)
-
-        return KD_loss
+        
+        return loss
 
     def forward(self, x, mode):
         if mode == 'student':
@@ -90,6 +91,7 @@ class KD_Cifar(pl.LightningModule):
         y = y.to(self.device)
 
         y_teacher = self.forward(x, 'teacher')
+        #y_teacher = None
         y_student = self.forward(x, 'student')
         
         loss = self.loss_fn_kd(y_student, y, y_teacher)
@@ -107,12 +109,12 @@ class KD_Cifar(pl.LightningModule):
             } 
         }
 
-    def training_end(self, outputs):
-        self.student.eval()
-        return outputs
+    #def training_end(self, outputs):
+    #    self.student.eval()
+    #    return outputs
 
     def validation_step(self, batch, batch_idx):
-
+        self.student.eval()
         x, y = batch
 
         x = x.to(self.device)
@@ -163,6 +165,7 @@ class KD_Cifar(pl.LightningModule):
     def train_dataloader(self):
         # REQUIRED
         transform_train = transforms.Compose([
+            transforms.Pad(4, padding_mode="reflect"),
             transforms.RandomCrop(32, padding=4),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
@@ -218,8 +221,8 @@ class KD_Cifar(pl.LightningModule):
         parser.add_argument('--path-to-teacher', default='', type=str, help='teacher chkp path')
         parser.add_argument('--cuda', default=False, type=str2bool, help='whether or not use cuda(train on GPU)')
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
-        parser.add_argument('--temperature', default=20, type=float, help='Temperature for knowledge distillation')
-        parser.add_argument('--alpha', default=0.9, type=float, help='Alpha for knowledge distillation')
+        parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
+        parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
 
         return parser
 

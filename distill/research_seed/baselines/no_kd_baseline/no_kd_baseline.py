@@ -26,6 +26,7 @@ class NO_KD_Cifar(pl.LightningModule):
         super(NO_KD_Cifar, self).__init__()
         # not the best model...
         self.hparams = hparams
+        hparams.cuda= False
         self.model = create_cnn_model(hparams.model, dataset=hparams.dataset, use_cuda=hparams.cuda)
         self.criterion = nn.CrossEntropyLoss()
         self.device = 'cuda:0' if hparams.cuda == True else 'cpu'
@@ -42,8 +43,8 @@ class NO_KD_Cifar(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = batch
 
-        x = x.to(self.device)
-        y = y.to(self.device)
+        #x = x.to(self.device)
+        #y = y.to(self.device)
 
         y_hat = self.forward(x)
         loss = self.criterion(y_hat, y)
@@ -65,8 +66,8 @@ class NO_KD_Cifar(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
 
-        x = x.to(self.device)
-        y = y.to(self.device)
+        #x = x.to(self.device)
+        #y = y.to(self.device)
 
         y_hat = self.forward(x)
         val_loss = self.criterion(y_hat, y)
@@ -119,8 +120,11 @@ class NO_KD_Cifar(pl.LightningModule):
 
         trainset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=True,
 												 download=True, transform=transform_train)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
-        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=4)
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
+        else:
+            dist_sampler = None
+        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=4, sampler=dist_sampler)
 
     @pl.data_loader
     def val_dataloader(self):
@@ -132,8 +136,11 @@ class NO_KD_Cifar(pl.LightningModule):
 
         valset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
-        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=4)
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
+        else:
+            dist_sampler = None
+        return DataLoader(valset, batch_size=self.hparams.batch_size, num_workers=4, sampler=dist_sampler)
 
     @pl.data_loader
     def test_dataloader(self):
@@ -145,8 +152,12 @@ class NO_KD_Cifar(pl.LightningModule):
 
         testset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
 												download=True, transform=transform_test)
-        #dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
-        return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4)
+        
+        if self.hparams.gpus > 1:
+            dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
+            return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4, sampler=dist_sampler)
+        else:    
+            return DataLoader(testset, batch_size=self.hparams.batch_size,num_workers=4)
 
 
     @staticmethod
