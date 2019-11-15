@@ -85,7 +85,6 @@ class KD_Cifar(pl.LightningModule):
 
         x, y = batch
 
-
         y_teacher = self.forward(x, 'teacher')
         y_student = self.forward(x, 'student')
         
