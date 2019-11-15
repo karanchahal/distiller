@@ -85,8 +85,6 @@ class KD_Cifar(pl.LightningModule):
 
         x, y = batch
 
-        x = x.to(self.device)
-        y = y.to(self.device)
 
         y_teacher = self.forward(x, 'teacher')
         y_student = self.forward(x, 'student')
@@ -111,8 +109,6 @@ class KD_Cifar(pl.LightningModule):
         self.student.eval()
         x, y = batch
 
-        x = x.to(self.device)
-        y = y.to(self.device)
 
         y_hat = self.forward(x, 'student')
         val_loss = self.criterion(y_hat, y)

@@ -36,7 +36,7 @@ def main(hparams):
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
     parser.add_argument('--epochs', default=100, type=int,  help='number of total epochs to run')
-    parser.add_argument('--gpus', type=int, default=None)
+    parser.add_argument('--gpus', type=int, default=1)
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--save-dir', type=str, default='./lightning_logs')
     parser.add_argument('--version', type=int, required=True, help= "version number for experiment")
