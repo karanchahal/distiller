@@ -288,7 +288,8 @@ def init_distributed_mode(args):
         print('Not using distributed mode')
         args.distributed = False
         return
-
+    args.distributed = False
+    return
     args.distributed = True
 
     torch.cuda.set_device(args.gpu)
