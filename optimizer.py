@@ -32,7 +32,7 @@ def get_scheduler(sched_str, params):
         return optim.lr_scheduler.StepLR, sched_args
     elif sched_str.lower() == "multisteplr":
         decay_steps = [
-            int(0.25 * params["epochs"]),
+            int(0.4 * params["epochs"]),
             int(0.75 * params["epochs"]),
         ]
         sched_args["milestones"] = decay_steps
