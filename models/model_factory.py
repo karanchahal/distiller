@@ -1,74 +1,54 @@
+import torch
 import models
-
-
-def is_resnet(name):
-    """
-    Simply checks if name represents a resnet, by convention, all resnet names start with 'resnet'
-    :param name:
-    :return:
-    """
-    name = name.lower()
-    return name.startswith('resnet')
-
-
 model_dict = {
-    "WRN10_4": models.WRN10_4,
-    "WRN16_1": models.WRN16_1,
-    "WRN16_2": models.WRN16_2,
-    "WRN16_4": models.WRN16_4,
-    "WRN16_8": models.WRN16_8,
-    "WRN28_2": models.WRN28_2,
-    "WRN22_4": models.WRN22_4,
-    "WRN22_8": models.WRN22_8,
-    "WRN28_1": models.WRN28_1,
-    "WRN10_1": models.WRN10_1,
-    "WRN40_1": models.WRN40_1,
-    "WRN40_4": models.WRN40_4,
-    "resnet8": models.custom.resnet8_cifar,
-    "resnet14": models.custom.resnet14_cifar,
-    "resnet18": models.vision.resnet18,
-    "resnet20": models.custom.resnet20_cifar,
-    "resnet32": models.custom.resnet32_cifar,
-    "resnet34": models.vision.resnet34,
-    "resnet44": models.custom.resnet44_cifar,
-    "resnet50": models.vision.resnet50,
-    "resnet50_32x4d": models.vision.resnext50_32x4d,
-    "resnet56": models.custom.resnet56_cifar,
-    "resnet101": models.vision.resnet101,
-    "resnet101_32x8d": models.vision.resnext101_32x8d,
-    "resnet110": models.custom.resnet110_cifar,
-    "resnet152": models.vision.resnet152,
-    "resnet1202": models.custom.resnet1202_cifar,
-    "resnet164": models.custom.resnet164_cifar,
-    "resnet1001": models.custom.resnet1001_cifar,
-    "preact_resnet110": models.custom.preact_resnet110_cifar,
-    "preact_resnet164": models.custom.preact_resnet164_cifar,
-    "preact_resnet1001": models.custom.preact_resnet1001_cifar,
-    "vgg11": models.vision.vgg11,
-    "vgg11_bn": models.vision.vgg11_bn,
-    "vgg13": models.vision.vgg13,
-    "vgg13_bn": models.vision.vgg13_bn,
-    "vgg16": models.vision.vgg16,
-    "vgg16_bn": models.vision.vgg16_bn,
-    "vgg19": models.vision.vgg19,
-    "vgg19_bn": models.vision.vgg19_bn,
-    "efficientnet": models.standard.EfficientNetB0,
+    "WRN10_4": models.WRN10_4,  # params: 1198810
+    "WRN16_1": models.WRN16_1,  # params: 175066
+    "WRN16_2": models.WRN16_2,  # params: 691674
+    "WRN16_4": models.WRN16_4,  # params: 2748890
+    "WRN16_8": models.WRN16_8,  # params: 10961370
+    "WRN28_2": models.WRN28_2,  # params: 1467610
+    "WRN22_4": models.WRN22_4,  # params: 4298970
+    "WRN22_8": models.WRN22_8,  # params: 17158106
+    "WRN28_1": models.WRN28_1,  # params: 369498
+    "WRN10_1": models.WRN10_1,  # params: 77850
+    "WRN40_1": models.WRN40_1,  # params: 563930
+    "WRN40_4": models.WRN40_4,  # params: 8949210
+    # "resnet8": models.custom.resnet8_cifar,  # params: 78042
+    "resnet14": models.custom.resnet14_cifar,  # params: 175258
+    "resnet20": models.custom.resnet20_cifar,  # params: 272474
+    "resnet32": models.custom.resnet32_cifar,  # params: 466906
+    "resnet44": models.custom.resnet44_cifar,  # params: 661338
+    "resnet56": models.custom.resnet56_cifar,  # params: 855770
+    "resnet110": models.custom.resnet110_cifar,  # params: 1730714
+    "resnet1202": models.custom.resnet1202_cifar,  # params: 19424026
+    "resnet164": models.custom.resnet164_cifar,  # params: 1704154
+    "resnet1001": models.custom.resnet1001_cifar,  # params: 10328602
+    "resnet8": models.standard.ResNet8,  # params: 78042
+    "resnet10": models.standard.ResNet10,  # params: 4903242
+    "resnet18": models.standard.ResNet18,  # params: 11173962
+    "resnet34": models.standard.ResNet34,  # params: 21282122
+    "resnet50": models.standard.ResNet50,  # params: 23520842
+    "resnet101": models.standard.ResNet101,  # params: 42512970
+    "resnet152": models.standard.ResNet152,  # params: 58156618
+    "vgg11": models.standard.VGG11,  # params: 9231114
+    "vgg13": models.standard.VGG13,  # params: 9416010
+    "vgg16": models.standard.VGG16,  # params: 14728266
+    "vgg19": models.standard.VGG19,  # params: 20040522
+    "efficientnet": models.standard.EfficientNetB0,  # params: 2912089
 }
 
 
-def create_cnn_model(name, dataset="cifar100", use_cuda=False):
-    """
-    Create a student for training, given student name and dataset
-    :param name: name of the student. e.g., resnet110, resnet32, plane2, plane10, ...
-    :param dataset: the dataset which is used to determine last layer's output size. Options are cifar10 and cifar100.
-    :return: a pytorch student for neural network
-    """
-    num_classes = 100 if dataset == 'cifar100' else 10
-    resnet_model = model_dict[name](num_classes=num_classes)
-    model = resnet_model
-
+def create_cnn_model(name, num_classes, device):
+    print(f"Building model {name}...")
+    model_cls = model_dict[name]
+    model = model_cls(num_classes=num_classes)
+    total_params = sum(p.numel() for p in model.parameters())
+    print(f"{name} total parameters: {total_params}")
     # copy to cuda if activated
-    if use_cuda:
-        model = model.cuda()
-
+    model = model.to(device)
+    model = torch.nn.DataParallel(model)
     return model
+
+
+# for model in model_dict.keys():
+#     create_cnn_model(model, 10, "cpu")

@@ -38,9 +38,25 @@ class VGG(nn.Module):
         return nn.Sequential(*layers)
 
 
+def VGG11(**kwargs):
+    return VGG('VGG11')
+
+
+def VGG13(**kwargs):
+    return VGG('VGG13')
+
+
+def VGG16(**kwargs):
+    return VGG('VGG16')
+
+
+def VGG19(**kwargs):
+    return VGG('VGG19')
+
+
 def test():
     net = VGG('VGG11')
-    x = torch.randn(2,3,32,32)
+    x = torch.randn(2, 3, 32, 32)
     y = net(x)
     print(y.size())
 
