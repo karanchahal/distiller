@@ -39,7 +39,8 @@ class Trainer(object):
         self.train_loader = train_config["train_loader"]
         self.test_loader = train_config["test_loader"]
         self.config = train_config
-        self.t = None
+        # tqdm bar
+        self.t_bar = None
 
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
