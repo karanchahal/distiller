@@ -310,32 +310,6 @@ class DistanceWeighted(_Sampler):
         return anchor_idx, pos_idx, neg_idx
 
 
-triplet_ratio = 0.0
-triplet_margin = 0.2
-dist_ratio = 1.0
-angle_ratio = 2.0
-at_ratio = 0.0
-
-dark_ratio = 0.0
-dark_alpha = 2.0
-dark_beta = 3.0
-
-l2normalize = True
-teacher_embedding_size = 128
-teacher_l2normalize = True
-embedding_size = 128
-
-triplet_sample = DistanceWeighted
-dist_criterion = RkdDistance()
-angle_criterion = RKdAngle()
-dark_criterion = HardDarkRank(alpha=dark_alpha,
-                              beta=dark_beta)
-triplet_criterion = L2Triplet(
-    sampler=triplet_sample(),
-    margin=triplet_margin)
-at_criterion = AttentionTransfer()
-
-
 def othernorm(x):
     other_mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, -1, 1, 1).cuda()
     other_std = torch.Tensor([0.229, 0.224, 0.225]).view(1, -1, 1, 1).cuda()
@@ -353,20 +327,35 @@ class TrainManager(Trainer):
         self.t_net.eval()
         self.t_net.train(mode=False)
 
+        self.triplet_ratio = 0.0
+        self.triplet_margin = 0.2
+        self.dist_ratio = 1.0
+        self.angle_ratio = 2.0
+        self.at_ratio = 0.0
+
+        self.dark_ratio = 0.0
+        self.dark_alpha = 2.0
+        self.dark_beta = 3.0
+        self.triplet_sample = DistanceWeighted
+        self.dist_criterion = RkdDistance()
+        self.angle_criterion = RKdAngle()
+        self.dark_criterion = HardDarkRank(alpha=self.dark_alpha,
+                                      beta=self.dark_beta)
+        self.triplet_criterion = L2Triplet(
+            sampler=self.triplet_sample(),
+            margin=self.triplet_margin)
+        self.at_criterion = AttentionTransfer()
+
     def calculate_loss(self, data, target):
-        t_b1, t_b2, t_b3, t_b4, t_pool, t_e = self.t_net(othernorm(data), True)
+        t_pool, t_e = self.t_net(othernorm(data), True)
+        pool, e = self.s_net(othernorm(data), True)
 
-        b1, b2, b3, b4, pool, e = self.s_net(othernorm(data), True)
-        at_loss = at_ratio * \
-            (at_criterion(b2, t_b2) +
-             at_criterion(b3, t_b3) + at_criterion(b4, t_b4))
+        triplet_loss = self.triplet_ratio * self.triplet_criterion(e, target)
+        dist_loss = self.dist_ratio * self.dist_criterion(e, t_e)
+        angle_loss = self.angle_ratio * self.angle_criterion(e, t_e)
+        dark_loss = self.dark_ratio * self.dark_criterion(e, t_e)
 
-        triplet_loss = triplet_ratio * triplet_criterion(e, target)
-        dist_loss = dist_ratio * dist_criterion(e, t_e)
-        angle_loss = angle_ratio * angle_criterion(e, t_e)
-        dark_loss = dark_ratio * dark_criterion(e, t_e)
-
-        loss = triplet_loss + dist_loss + angle_loss + dark_loss + at_loss
+        loss = triplet_loss + dist_loss + angle_loss + dark_loss
         loss.backward()
         self.optimizer.step()
         return loss
@@ -378,6 +367,7 @@ class LinearEmbedding(nn.Module):
         self.base = base
         self.linear = nn.Linear(output_size, embedding_size)
         self.normalize = normalize
+
 
     def forward(self, x, get_ha=False):
         if get_ha:
@@ -399,6 +389,12 @@ class LinearEmbedding(nn.Module):
 
 def run_relational_kd(s_net, t_net, **params):
 
+    l2normalize = True
+    teacher_embedding_size = 128
+    teacher_l2normalize = True
+    embedding_size = 128
+
+
     s_net = LinearEmbedding(s_net,
                             output_size=10,
                             embedding_size=embedding_size,
@@ -410,9 +406,9 @@ def run_relational_kd(s_net, t_net, **params):
                             embedding_size=teacher_embedding_size,
                             normalize=teacher_l2normalize)
     t_net = t_net.to(params["device"])
+
     # Student training
-    # Define loss and the optimizer
-    print("---------- Training TA Student -------")
+    print("---------- Training RKD Student -------")
     student_name = params["s_name"]
     s_train_config = copy.deepcopy(params)
     s_train_config["name"] = student_name
