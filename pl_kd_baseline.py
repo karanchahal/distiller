@@ -8,7 +8,7 @@ from optimizer import get_optimizer, get_scheduler
 
 from pytorch_lightning import Trainer
 from pytorch_lightning.logging import TestTubeLogger
-from lightning_trainer import load_checkpoint, BaseTrainer, KDTrainer
+from pl_trainer import load_checkpoint, BaseTrainer, KDTrainer
 
 
 BATCH_SIZE = 128
@@ -40,7 +40,7 @@ def parse_arguments():
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--save-dir', dest="save_dir",
                         type=str, default='./lightning_logs')
-    parser.add_argument('--version', type=int, required=True,
+    parser.add_argument('--version', type=int, default=1,
                         help="version number for experiment")
     args = parser.parse_args()
     return args
@@ -84,15 +84,16 @@ def init_teacher(t_name, params):
         print("---------- Loading Teacher -------")
         t_net = load_checkpoint(t_net, params["t_checkpoint"])
 
+    model = BaseTrainer(t_net, train_config)
     if params["t_checkpoint"]:
-        best_t_acc = 0
+        best_t_acc = model.validate_full()
     else:
         teacher_name = params["t_name"]
-        trial_id = params["trial_id"]
-        best_teacher = f"{teacher_name}_{trial_id}_best.pth.tar"
+        version = params["version"]
+        best_teacher = f"{teacher_name}_{version}_best.pth.tar"
         print("---------- Training Teacher -------")
-        model = BaseTrainer(t_net, train_config)
         model = train_pl(model, params)
+        t_net = load_checkpoint(t_net, best_teacher)
     return t_net, best_t_acc
 
 
@@ -139,7 +140,6 @@ def start_evaluation(args):
         "num_classes": num_classes,
         "train_loader": train_loader,
         "test_loader": test_loader,
-        "trial_id": 1,
         "gpus": args.gpus,
         "nodes": args.nodes,
         "save_dir": args.save_dir,

@@ -23,7 +23,7 @@ model_dict = {
     "resnet1202": models.custom.resnet1202_cifar,  # params: 19424026
     "resnet164": models.custom.resnet164_cifar,  # params: 1704154
     "resnet1001": models.custom.resnet1001_cifar,  # params: 10328602
-    "resnet8": models.standard.ResNet8,  # params: 78042
+    "resnet8": models.standard.ResNet8,  # params: 89322
     "resnet10": models.standard.ResNet10,  # params: 4903242
     "resnet18": models.standard.ResNet18,  # params: 11173962
     "resnet34": models.standard.ResNet34,  # params: 21282122

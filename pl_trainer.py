@@ -40,9 +40,9 @@ class LightningTrainer(pl.LightningModule):
         self.loss_fun = nn.CrossEntropyLoss()
         self.train_loader = self.hparams.train_loader
         self.test_loader = self.hparams.test_loader
-        # tqdm bar
-        self.t_bar = None
 
+        # for metric collection
+        self.best_acc = 0
         self.train_step = 0
         self.train_num_correct = 0
         self.val_step = 0
@@ -61,12 +61,12 @@ class LightningTrainer(pl.LightningModule):
         pred = y_pred.data.max(1, keepdim=True)[1]
         self.train_step += x.size(0)
         self.train_num_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
-
+        train_acc = float(self.train_num_correct * 100 / self.train_step)
         return {
-            'loss': loss,
-            'log': {
-                'train_loss': loss.item(),
-                'train_accuracy': float(self.train_num_correct * 100 / self.train_step),
+            "loss": loss,
+            "log": {
+                "train_loss": loss.item(),
+                "train_accuracy": train_acc,
             }
         }
 
@@ -83,22 +83,26 @@ class LightningTrainer(pl.LightningModule):
         self.val_num_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
 
         return {
-            'val_loss': val_loss
+            "val_loss": val_loss
         }
 
     def validation_end(self, outputs):
         # OPTIONAL
-        avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-
+        avg_loss = torch.stack([x["val_loss"] for x in outputs]).mean()
+        val_acc = float(self.val_num_correct * 100 / self.val_step)
         log_metrics = {
-            'val_avg_loss': avg_loss.item(),
-            'val_accuracy': float(self.val_num_correct * 100 / self.val_step)
+            "val_avg_loss": avg_loss.item(),
+            "val_accuracy": val_acc
         }
 
+        # custom checkpointing
+        if val_acc > self.best_acc:
+            self.best_acc = val_acc
+            self.save(self.current_epoch, name=f"{self.name}_best.pth.tar")
         if self.scheduler:
             self.scheduler.step()
 
-        # reset logging stuff
+        # reset logging
         self.train_step = 0
         self.train_num_correct = 0
         self.val_step = 0
@@ -107,7 +111,31 @@ class LightningTrainer(pl.LightningModule):
         # back to training
         self.net.train()
 
-        return {'val_loss': avg_loss, 'log': log_metrics}
+        return {"log": log_metrics,
+                "progress_bar": {
+                    "val_acc": val_acc,
+                }}
+
+    def validate_full(self):
+        self.net.eval()
+        with torch.no_grad():
+            correct = 0
+            acc = 0
+            for images, labels in self.test_loader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                output = self.net(images)
+                # Standard Learning Loss ( Classification Loss)
+                loss = self.loss_fun(output, labels)
+                # get the index of the max log-probability
+                pred = output.data.max(1, keepdim=True)[1]
+                correct += pred.eq(labels.data.view_as(pred)).cpu().sum()
+
+            acc = float(correct) / len(self.test_loader.dataset)
+            print(f"\nValidation set: Average loss: {loss:.4f}, "
+                  f"Accuracy: {correct}/{len(self.test_loader.dataset)} "
+                  f"({acc * 100.0:.3f}%)\n")
+            return acc
 
     def configure_optimizers(self):
         return self. optimizer
@@ -123,6 +151,18 @@ class LightningTrainer(pl.LightningModule):
     @pl.data_loader
     def test_dataloader(self):
         return self.test_loader
+
+    def save(self, epoch, name=None):
+        if name is None:
+            torch.save({
+                "model_state_dict": self.net.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            }, f"{self.name}_epoch{epoch}.pth.tar")
+        else:
+            torch.save({
+                "model_state_dict": self.net.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+            }, name)
 
 
 class BaseTrainer(LightningTrainer):
