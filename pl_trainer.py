@@ -1,9 +1,7 @@
 import torch
 from torch import nn
-from tqdm import tqdm
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from collections import namedtuple
 
 
 def load_checkpoint(model, checkpoint_path):
@@ -111,10 +109,7 @@ class LightningTrainer(pl.LightningModule):
         # back to training
         self.net.train()
 
-        return {"log": log_metrics,
-                "progress_bar": {
-                    "val_acc": val_acc,
-                }}
+        return {"log": log_metrics, "progress_bar": {"val_acc": val_acc, }}
 
     def validate_full(self):
         self.net.eval()

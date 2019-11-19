@@ -46,7 +46,6 @@ def create_cnn_model(name, num_classes, device):
     print(f"{name} total parameters: {total_params}")
     # copy to cuda if activated
     model = model.to(device)
-    model = torch.nn.DataParallel(model)
     return model
 
 
