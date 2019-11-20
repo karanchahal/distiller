@@ -9,17 +9,17 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 
-from trainer import BaseTrainer
+from trainer import BaseTrainer, KDTrainer
 
 
-def criterion_alternative_L2(source, target, margin):
+def alt_L2(source, target, margin):
     # Proposed alternative loss function
     loss = ((source + margin)**2 * ((source > -margin) & (target <= 0)).float() +
             (source - margin)**2 * ((source <= margin) & (target > 0)).float())
     return torch.abs(loss).sum()
 
 
-DISTILL_EPOCHS = 3
+DISTILL_EPOCHS = 10
 
 
 class Active_Soft_WRN_norelu(nn.Module):
@@ -95,90 +95,36 @@ class Active_Soft_WRN_norelu(nn.Module):
         return self.out_s
 
 
-def init_distillation(s_net, ta_net, epoch, train_loader):
-    epoch_start_time = time.time()
-    print('\nDistillation epoch: %d' % epoch)
-    ta_net.train()
-    ta_net.s_net.train()
-    ta_net.t_net.train()
-    train_loss1 = 0
-    train_loss2 = 0
-    train_loss3 = 0
-    optimizer = optim.SGD([{'params': s_net.parameters()},
-                           {'params': ta_net.Connectors.parameters()}], lr=0.1, nesterov=True, momentum=0.9, weight_decay=5e-4)
-    for batch_idx, (inputs, targets) in enumerate(train_loader):
-        inputs, targets = inputs.cuda(), targets.cuda()
-        optimizer.zero_grad()
-        inputs, targets = Variable(inputs), Variable(targets)
+class DistillTrainer(BaseTrainer):
+    def __init__(self, s_net, d_net, train_config):
+        super(DistillTrainer, self).__init__(s_net, train_config)
+        # the student net is the base net
+        self.s_net = self.net
+        self.d_net = d_net
+        d_net.train()
+        d_net.s_net.train()
+        d_net.t_net.train()
+        self.optimizer = optim.SGD([{'params': s_net.parameters()},
+                                    {'params': d_net.Connectors.parameters()}],
+                                   lr=0.1, nesterov=True, momentum=0.9,
+                                   weight_decay=5e-4)
 
-        batch_size = inputs.shape[0]
-        ta_net(inputs)
+    def calculate_loss(self, data, target):
+        self.optimizer.zero_grad()
 
-        # Activation transfer loss
-        loss_AT1 = ((ta_net.Connect1(ta_net.res1) > 0) ^ (
-            ta_net.res1_t.detach() > 0)).sum().float() / ta_net.res1_t.nelement()
-        loss_AT2 = ((ta_net.Connect2(ta_net.res2) > 0) ^ (
-            ta_net.res2_t.detach() > 0)).sum().float() / ta_net.res2_t.nelement()
-        loss_AT3 = ((ta_net.Connect3(ta_net.res3) > 0) ^ (
-            ta_net.res3_t.detach() > 0)).sum().float() / ta_net.res3_t.nelement()
+        batch_size = data.shape[0]
+        self.d_net(data)
 
         # Alternative loss
         margin = 1.0
-        loss_alter = criterion_alternative_L2(ta_net.Connect3(
-            ta_net.res3), ta_net.res3_t.detach(), margin) / batch_size
-        loss_alter += criterion_alternative_L2(ta_net.Connect2(
-            ta_net.res2), ta_net.res2_t.detach(), margin) / batch_size / 2
-        loss_alter += criterion_alternative_L2(ta_net.Connect1(
-            ta_net.res1), ta_net.res1_t.detach(), margin) / batch_size / 4
+        loss_alter = alt_L2(self.d_net.Connect3(
+            self.d_net.res3), self.d_net.res3_t.detach(), margin) / batch_size
+        loss_alter += alt_L2(self.d_net.Connect2(self.d_net.res2),
+                             self.d_net.res2_t.detach(), margin) / batch_size / 2
+        loss_alter += alt_L2(self.d_net.Connect1(self.d_net.res1),
+                             self.d_net.res1_t.detach(), margin) / batch_size / 4
 
         loss = loss_alter / 1000 * 3
-
-        loss.backward()
-        optimizer.step()
-
-        train_loss1 += loss_AT1.item()
-        train_loss2 += loss_AT2.item()
-        train_loss3 += loss_AT3.item()
-
-        b_idx = batch_idx
-
-    print('Train \t Time Taken: %.2f sec' % (time.time() - epoch_start_time))
-    print('layer1_activation similarity %.1f%%' %
-          (100 * (1 - train_loss1 / (b_idx + 1))))
-    print('layer2_activation similarity %.1f%%' %
-          (100 * (1 - train_loss2 / (b_idx + 1))))
-    print('layer3_activation similarity %.1f%%' %
-          (100 * (1 - train_loss3 / (b_idx + 1))))
-
-
-class ABTrainer(BaseTrainer):
-    def __init__(self, s_net, t_net, train_config):
-        super(ABTrainer, self).__init__(s_net, train_config)
-        # the student net is the base net
-        self.s_net = self.net
-        self.t_net = t_net
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
-
-        self.optimizer = optim.SGD(s_net.parameters(),
-                                   nesterov=True,
-                                   lr=train_config["learning_rate"],
-                                   momentum=train_config["momentum"],
-                                   weight_decay=train_config["weight_decay"])
-        self.loss_fun = nn.CrossEntropyLoss()
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer)
-
-    def calculate_loss(self, data, target):
-        batch_size = data.shape[0]
-
-        self.optimizer.zero_grad()
-        inputs, target = Variable(data), Variable(target)
-        out_t = self.t_net(inputs)
-        out_s = self.s_net(inputs)
-
-        loss = - (F.softmax(out_t / self.config["T_student"], 1).detach() * (F.log_softmax(
-            out_s / self.config["T_student"], 1) - F.log_softmax(out_t / self.config["T_student"], 1).detach())).sum() / batch_size
 
         loss.backward()
         self.optimizer.step()
@@ -189,13 +135,20 @@ def run_ab_distillation(s_net, t_net, **params):
     d_net = Active_Soft_WRN_norelu(t_net, s_net).to(params["device"])
 
     # Distillation (Initialization)
-    for epoch in range(1, int(DISTILL_EPOCHS) + 1):
-        init_distillation(s_net, d_net, epoch, params["train_loader"])
+    print("---------- Initialize AB Student Distillation-------")
+    d_name = params["s_name"]
+    d_train_config = copy.deepcopy(params)
+    d_train_config["name"] = d_name
+    d_train_config["epochs"] = DISTILL_EPOCHS
+    d_trainer = DistillTrainer(s_net, d_net=d_net, train_config=d_train_config)
+    d_trainer.train()
+    s_net = d_trainer.s_net
+
     # Student training
     print("---------- Training AB Student -------")
-    student_name = params["s_name"]
+    sname = params["s_name"]
     s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
-    s_trainer = ABTrainer(s_net, t_net=t_net, train_config=s_train_config)
+    s_train_config["name"] = sname
+    s_trainer = KDTrainer(s_net, t_net=t_net, train_config=s_train_config)
     best_s_acc = s_trainer.train()
     return best_s_acc

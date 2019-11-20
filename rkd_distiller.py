@@ -42,7 +42,8 @@ class _Triplet(nn.Module):
         positive_embed = embeddings[pos_idx]
         negative_embed = embeddings[neg_idx]
 
-        loss = F.triplet_margin_loss(anchor_embed, positive_embed, negative_embed,
+        loss = F.triplet_margin_loss(anchor_embed,
+                                     positive_embed, negative_embed,
                                      margin=self.margin, p=self.p, reduction='none')
 
         if not self.reduce:
@@ -353,11 +354,10 @@ class LinearEmbedding(nn.Module):
 
     def forward(self, x, get_ha=False):
         if get_ha:
-            b1, b2, b3, b4, pool = self.base(x, True)
+            b1, b2, b3, b4, pool = self.base(x, get_ha)
         else:
             pool = self.base(x)
 
-        pool = pool.view(x.size(0), -1)
         embedding = self.linear(pool)
 
         if self.normalize:

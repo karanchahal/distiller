@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 from tqdm import tqdm
+import torch.nn.functional as F
 
 
 def load_checkpoint(model, checkpoint_path):
@@ -139,6 +140,35 @@ class BaseTrainer(Trainer):
         # Standard Learning Loss ( Classification Loss)
         output = self.net(data)
         loss = self.loss_fun(output, target)
+        loss.backward()
+        self.optimizer.step()
+        return loss
+
+
+class KDTrainer(Trainer):
+    def __init__(self, s_net, t_net, train_config):
+        super(KDTrainer, self).__init__(s_net, train_config)
+        # the student net is the base net
+        self.s_net = self.net
+        self.t_net = t_net
+        # set the teacher net into evaluation mode
+        self.t_net.eval()
+        self.t_net.train(mode=False)
+
+    def calculate_loss(self, data, target):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
+        output = self.s_net(data)
+
+        # Standard Learning Loss ( Classification Loss)
+        loss = self.loss_fun(output, target)
+
+        # Knowledge Distillation Loss
+        teacher_outputs = self.t_net(data)
+        student_max = F.log_softmax(output / T, dim=1)
+        teacher_max = F.softmax(teacher_outputs / T, dim=1)
+        loss_KD = nn.KLDivLoss()(student_max, teacher_max)
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         loss.backward()
         self.optimizer.step()
         return loss

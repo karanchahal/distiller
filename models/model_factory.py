@@ -1,4 +1,3 @@
-import torch
 import models
 model_dict = {
     "WRN10_4": models.WRN10_4,  # params: 1198810
