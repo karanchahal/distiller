@@ -1,3 +1,15 @@
+# Original Repo:
+# https://github.com/imirzadeh/Teacher-Assistant-Knowledge-Distillation
+# @article{mirzadeh2019improved,
+#  title={Improved knowledge distillation via teacher assistant:
+#  Bridging the gap between student and teacher},
+#  author={Mirzadeh, Seyed-Iman and Farajtabar, Mehrdad and Li, Ang and
+#  Ghasemzadeh, Hassan},
+#  journal={arXiv preprint arXiv:1902.03393},
+#  year={2019}
+# }
+
+
 import copy
 
 from trainer import load_checkpoint, KDTrainer

@@ -1,3 +1,14 @@
+# Original Repo:
+# https://github.com/lenscloth/RKD
+# @inproceedings{park2019relational,
+#  title={Relational Knowledge Distillation},
+#  author={Park, Wonpyo and Kim, Dongju and Lu, Yan and Cho, Minsu},
+#  booktitle={Proceedings of the IEEE Conference on Computer Vision
+#  and Pattern Recognition},
+#  pages={3967--3976},
+#  year={2019}
+# }
+
 import copy
 import torch
 import torch.nn as nn

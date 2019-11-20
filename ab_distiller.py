@@ -1,10 +1,19 @@
-'''Train CIFAR10 with PyTorch.'''
+# Original Repo:
+# https://github.com/bhheo/AB_distillation
+# @inproceedings{heo2019knowledge,
+#  title={Knowledge transfer via distillation of activation boundaries
+#  formed by hidden neurons},
+#  author={Heo, Byeongho and Lee, Minsik and Yun, Sangdoo and Choi, Jin Young},
+#  booktitle={Proceedings of the AAAI Conference on Artificial Intelligence},
+#  volume={33},
+#  pages={3779--3787},
+#  year={2019}
+# }
 
-import time
+
 import copy
 import math
 import torch.optim as optim
-from torch.autograd import Variable
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
