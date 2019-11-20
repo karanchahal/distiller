@@ -1,4 +1,3 @@
-import models.huyvnphan as vision
-import models.junyuseu as custom
-import models.kuangliu as standard
-from models.wide_resnet_ab import *
+import models.cifar10 as cifar10
+import models.cifar10sm as cifar10sm
+import models.wide_resnet as wide

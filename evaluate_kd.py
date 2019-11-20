@@ -7,11 +7,13 @@ from models.model_factory import create_cnn_model
 from ta_distiller import run_teacher_assistant
 from ab_distiller import run_ab_distillation
 from rkd_distiller import run_relational_kd
-from trainer import load_checkpoint, BaseTrainer
+from trainer import load_checkpoint, BaseTrainer, KDTrainer
 from optimizer import get_optimizer, get_scheduler
 
 
 BATCH_SIZE = 128
+
+MODES = ["KD", "RKD", "AB", "TAKD"]
 
 
 def parse_arguments():
@@ -36,11 +38,15 @@ def parse_arguments():
     parser.add_argument("--teacher-checkpoint", default="",
                         dest="t_checkpoint", type=str,
                         help="optional pretrained checkpoint for teacher")
+    parser.add_argument("--mode", default="KD", choices=MODES,
+                        dest="mode", type=str,
+                        help="What type of distillation to use")
     args = parser.parse_args()
     return args
 
 
 def init_teacher(t_name, params):
+    # Teacher Model
     num_classes = params["num_classes"]
     # Teacher training
     t_net = create_cnn_model(t_name, num_classes, params["device"])
@@ -65,11 +71,25 @@ def init_teacher(t_name, params):
     return t_net, best_t_acc
 
 
-def test_ta(t_net, params):
-    num_classes = params["num_classes"]
+def init_student(s_net, params):
     # Student Model
+    num_classes = params["num_classes"]
     s_name = params["s_name"]
     s_net = create_cnn_model(s_name, num_classes, params["device"])
+    return s_net
+
+
+def test_kd(s_net, t_net, params):
+    print("---------- Training KD -------")
+    kd_train_config = copy.deepcopy(params)
+    kd_train_config["name"] = params["s_name"]
+    kd_trainer = KDTrainer(s_net, t_net=t_net, train_config=kd_train_config)
+    best_kd_acc = kd_trainer.train()
+    return best_kd_acc
+
+
+def test_ta(s_net, t_net, params):
+    num_classes = params["num_classes"]
     # Arguments specifically for the teacher assistant approach
     params["ta_name"] = "resnet8"
     ta_model = create_cnn_model(
@@ -78,46 +98,43 @@ def test_ta(t_net, params):
     return best_ta_acc
 
 
-def test_ab(t_net, params):
-    num_classes = params["num_classes"]
-    # Student Model
-    s_name = params["s_name"]
-    s_net = create_cnn_model(s_name, num_classes, params["device"])
-
+def test_ab(s_net, t_net, params):
     # Arguments specifically for the ab approach
     best_ab_acc = run_ab_distillation(s_net, t_net, **params)
     return best_ab_acc
 
 
-def test_rkd(t_net, params):
-    num_classes = params["num_classes"]
-    # Student Model
-    s_name = params["s_name"]
-    s_net = create_cnn_model(s_name, num_classes, params["device"])
-
+def test_rkd(s_net, t_net, params):
     # Arguments specifically for the ab approach
     best_rkd_acc = run_relational_kd(s_net, t_net, **params)
     return best_rkd_acc
 
 
-def run_benchmarks(params):
+def run_benchmarks(mode, params):
     t_name = params["t_name"]
     s_name = params["s_name"]
     t_net, best_t_acc = init_teacher(t_name, params)
+    s_net = init_student(t_name, params)
 
-    best_ta_acc = test_ta(t_net, params)
-    # best_rkd_acc = test_rkd(t_net, num_classes, params)
-    # AB Distillation only works with wide resnets
-    if t_name.startswith("WRN") and s_name.startswith("WRN"):
-        best_ab_acc = test_ab(t_net, params)
-        print(f"Final results ab method {s_name}: {best_ab_acc}")
-    print(f"Final results ta method {s_name}: {best_ta_acc}")
-    # print(f"Final results rkd method {s_name}: {best_rkd_acc}")
-    print(f"Final results teacher {t_name}: {best_t_acc}")
+    if mode == "KD":
+        best_kd_acc = test_kd(s_net, t_net, params)
+        print(f"Best results kd method {s_name}: {best_kd_acc}")
+    elif mode == "TAKD":
+        best_takd_acc = test_ta(s_net, t_net, params)
+        print(f"Best results takd method {s_name}: {best_takd_acc}")
+    elif mode == "AB":
+        best_ab_acc = test_ab(s_net, t_net, params)
+        print(f"Best results ab method {s_name}: {best_ab_acc}")
+    elif mode == "RKD":
+        best_rkd_acc = test_rkd(s_net, t_net, params)
+        print(f"Best results rkd method {s_name}: {best_rkd_acc}")
+    else:
+        raise RuntimeError("Training mode not supported!")
+
+    print(f"Best results teacher {t_name}: {best_t_acc}")
 
 
-def start_evaluation(args):
-    # Setup cuda
+def setup_torch():
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     if use_cuda:
@@ -125,7 +142,11 @@ def start_evaluation(args):
     # Maximum determinism
     torch.manual_seed(1)
     print(f"Using {device} to train.")
+    return device
 
+
+def start_evaluation(args):
+    device = setup_torch()
     num_classes = 100 if args.dataset == "cifar100" else 10
     train_loader, test_loader = get_cifar(num_classes,
                                           batch_size=args.batch_size)
@@ -152,7 +173,7 @@ def start_evaluation(args):
     # Retrieve preconfigured optimizers and schedulers for all runs
     params["optim"] = get_optimizer("SGD", params)
     params["sched"] = get_scheduler("multisteplr", params)
-    run_benchmarks(params)
+    run_benchmarks(args.mode, params)
 
 
 if __name__ == "__main__":

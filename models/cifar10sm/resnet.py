@@ -6,7 +6,6 @@ Reference:
 [2] K. He, X. Zhang, S. Ren, and J. Sun. Identity mappings in deep residual networks. In ECCV, 2016.
 '''
 
-import torch
 import torch.nn as nn
 import math
 
@@ -160,10 +159,10 @@ class PreActBottleneck(nn.Module):
         return out
 
 
-class ResNet_Cifar(nn.Module):
+class ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=10):
-        super(ResNet_Cifar, self).__init__()
+        super(ResNet, self).__init__()
         self.inplanes = 16
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
                                stride=1, padding=1, bias=False)
@@ -216,10 +215,10 @@ class ResNet_Cifar(nn.Module):
         return x
 
 
-class PreAct_ResNet_Cifar(nn.Module):
+class PreAct_ResNet(nn.Module):
 
     def __init__(self, block, layers, num_classes=10):
-        super(PreAct_ResNet_Cifar, self).__init__()
+        super(PreAct_ResNet, self).__init__()
         self.inplanes = 16
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
                                stride=1, padding=1, bias=False)
@@ -270,73 +269,66 @@ class PreAct_ResNet_Cifar(nn.Module):
         return x
 
 
-def resnet8_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [1, 1, 1], **kwargs)
+def resnet8(**kwargs):
+    model = ResNet(BasicBlock, [1, 1, 1], **kwargs)
     return model
 
 
-def resnet14_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [2, 2, 2], **kwargs)
+def resnet14(**kwargs):
+    model = ResNet(BasicBlock, [2, 2, 2], **kwargs)
     return model
 
 
-def resnet20_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [3, 3, 3], **kwargs)
+def resnet20(**kwargs):
+    model = ResNet(BasicBlock, [3, 3, 3], **kwargs)
     return model
 
 
-def resnet32_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [5, 5, 5], **kwargs)
+def resnet32(**kwargs):
+    model = ResNet(BasicBlock, [5, 5, 5], **kwargs)
     return model
 
 
-def resnet44_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [7, 7, 7], **kwargs)
+def resnet44(**kwargs):
+    model = ResNet(BasicBlock, [7, 7, 7], **kwargs)
     return model
 
 
-def resnet56_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [9, 9, 9], **kwargs)
+def resnet56(**kwargs):
+    model = ResNet(BasicBlock, [9, 9, 9], **kwargs)
     return model
 
 
-def resnet110_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [18, 18, 18], **kwargs)
+def resnet110(**kwargs):
+    model = ResNet(BasicBlock, [18, 18, 18], **kwargs)
     return model
 
 
-def resnet1202_cifar(**kwargs):
-    model = ResNet_Cifar(BasicBlock, [200, 200, 200], **kwargs)
+def resnet1202(**kwargs):
+    model = ResNet(BasicBlock, [200, 200, 200], **kwargs)
     return model
 
 
-def resnet164_cifar(**kwargs):
-    model = ResNet_Cifar(Bottleneck, [18, 18, 18], **kwargs)
+def resnet164(**kwargs):
+    model = ResNet(Bottleneck, [18, 18, 18], **kwargs)
     return model
 
 
-def resnet1001_cifar(**kwargs):
-    model = ResNet_Cifar(Bottleneck, [111, 111, 111], **kwargs)
+def resnet1001(**kwargs):
+    model = ResNet(Bottleneck, [111, 111, 111], **kwargs)
     return model
 
 
-def preact_resnet110_cifar(**kwargs):
-    model = PreAct_ResNet_Cifar(PreActBasicBlock, [18, 18, 18], **kwargs)
+def preact_resnet110(**kwargs):
+    model = PreAct_ResNet(PreActBasicBlock, [18, 18, 18], **kwargs)
     return model
 
 
-def preact_resnet164_cifar(**kwargs):
-    model = PreAct_ResNet_Cifar(PreActBottleneck, [18, 18, 18], **kwargs)
+def preact_resnet164(**kwargs):
+    model = PreAct_ResNet(PreActBottleneck, [18, 18, 18], **kwargs)
     return model
 
 
-def preact_resnet1001_cifar(**kwargs):
-    model = PreAct_ResNet_Cifar(PreActBottleneck, [111, 111, 111], **kwargs)
+def preact_resnet1001(**kwargs):
+    model = PreAct_ResNet(PreActBottleneck, [111, 111, 111], **kwargs)
     return model
-
-
-if __name__ == '__main__':
-    net = resnet20_cifar()
-    y = net(torch.randn(1, 3, 64, 64))
-    print(net)
-    print(y.size())

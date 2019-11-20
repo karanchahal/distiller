@@ -1,12 +1,10 @@
 Sources of the models:
 
-These models seem to be a port from the vision standard library
-https://github.com/huyvnphan/PyTorch-CIFAR10
-
-These are custom models that supposedly work well with CIFAR
+These are custom models that supposedly work well with CIFAR.
+They are less deep than the other models and have a lot less parameters.
 https://github.com/junyuseu/pytorch-cifar-models
 
-These are the most commonly used models but they do not seem to work very well
+Cifar10 contains models tailor-made for Cifar10 and 100, they are copied from
 https://github.com/kuangliu/pytorch-cifar
 
 The wide resnet models are from AB distillation:
