@@ -19,7 +19,7 @@ def load_checkpoint(model, checkpoint_path):
 def init_progress_bar(train_loader):
     batch_size = train_loader.batch_size
     bar_format = "{desc}{percentage:3.0f}%"
-    bar_format += "|{bar}|"
+    # bar_format += "|{bar}|"
     bar_format += " {n_fmt}/{total_fmt} [{elapsed} < {remaining}]"
     bar_format += "{postfix}"
     t = tqdm(total=len(train_loader) * batch_size, bar_format=bar_format)
@@ -167,7 +167,7 @@ class KDTrainer(Trainer):
         teacher_outputs = self.t_net(data)
         student_max = F.log_softmax(output / T, dim=1)
         teacher_max = F.softmax(teacher_outputs / T, dim=1)
-        loss_KD = nn.KLDivLoss()(student_max, teacher_max)
+        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         loss.backward()
         self.optimizer.step()

@@ -4,16 +4,14 @@ import torch
 
 from data_loader import get_cifar
 from models.model_factory import create_cnn_model
-from ta_distiller import run_teacher_assistant
-from ab_distiller import run_ab_distillation
-from rkd_distiller import run_relational_kd
+from distillers import *
 from trainer import load_checkpoint, BaseTrainer, KDTrainer
 from optimizer import get_optimizer, get_scheduler
 
 
 BATCH_SIZE = 128
 
-MODES = ["KD", "RKD", "AB", "TAKD"]
+MODES = ["KD", "RKD", "AB", "TAKD", "NOKD", "PKD"]
 
 
 def parse_arguments():
@@ -79,6 +77,15 @@ def init_student(s_net, params):
     return s_net
 
 
+def test_nokd(s_net, params):
+    print("---------- Training NOKD -------")
+    nokd_train_config = copy.deepcopy(params)
+    nokd_train_config["name"] = params["s_name"]
+    nokd_trainer = BaseTrainer(s_net, train_config=nokd_train_config)
+    best_nokd_acc = nokd_trainer.train()
+    return best_nokd_acc
+
+
 def test_kd(s_net, t_net, params):
     print("---------- Training KD -------")
     kd_train_config = copy.deepcopy(params)
@@ -110,27 +117,38 @@ def test_rkd(s_net, t_net, params):
     return best_rkd_acc
 
 
+def test_pkd(s_net, t_net, params):
+    # Arguments specifically for the ab approach
+    best_rkd_acc = run_pkd_distillation(s_net, t_net, **params)
+    return best_rkd_acc
+
+
 def run_benchmarks(mode, params):
     t_name = params["t_name"]
     s_name = params["s_name"]
     t_net, best_t_acc = init_teacher(t_name, params)
     s_net = init_student(t_name, params)
 
-    if mode == "KD":
+    if mode.lower() == "nokd":
+        best_kd_acc = test_nokd(s_net, params)
+        print(f"Best results with no kd {s_name}: {best_kd_acc}")
+    if mode.lower() == "kd":
         best_kd_acc = test_kd(s_net, t_net, params)
         print(f"Best results kd method {s_name}: {best_kd_acc}")
-    elif mode == "TAKD":
+    elif mode.lower() == "takd":
         best_takd_acc = test_ta(s_net, t_net, params)
         print(f"Best results takd method {s_name}: {best_takd_acc}")
-    elif mode == "AB":
+    elif mode.lower() == "ab":
         best_ab_acc = test_ab(s_net, t_net, params)
         print(f"Best results ab method {s_name}: {best_ab_acc}")
-    elif mode == "RKD":
+    elif mode.lower() == "rkd":
         best_rkd_acc = test_rkd(s_net, t_net, params)
         print(f"Best results rkd method {s_name}: {best_rkd_acc}")
+    elif mode.lower() == "pkd":
+        best_pkd_acc = test_pkd(s_net, t_net, params)
+        print(f"Best results pkd method {s_name}: {best_pkd_acc}")
     else:
         raise RuntimeError("Training mode not supported!")
-
     print(f"Best results teacher {t_name}: {best_t_acc}")
 
 

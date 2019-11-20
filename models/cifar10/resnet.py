@@ -92,20 +92,24 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, get_ha=False):
+    def forward(self, x, is_feat=False):
         out = F.relu(self.bn1(self.conv1(x)))
         b1 = self.layer1(out)
         b2 = self.layer2(b1)
         b3 = self.layer3(b2)
         b4 = self.layer4(b3)
-        out = F.avg_pool2d(b4, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
+        pool = F.avg_pool2d(b4, 4)
+        pool = pool.view(pool.size(0), -1)
+        pool = self.linear(pool)
 
-        if get_ha:
-            return b1, b2, b3, b4, out
+        if is_feat:
+            b1 = b1.view(b1.size(0), -1)
+            b2 = b2.view(b2.size(0), -1)
+            b3 = b3.view(b3.size(0), -1)
+            b4 = b4.view(b4.size(0), -1)
+            return[b1, b2, b3, b4], pool
 
-        return out
+        return pool
 
 
 class ResNetSmall(nn.Module):
@@ -129,19 +133,22 @@ class ResNetSmall(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, get_ha=False):
+    def forward(self, x, is_feat=False):
         out = F.relu(self.bn1(self.conv1(x)))
         b1 = self.layer1(out)
         b2 = self.layer2(b1)
         b3 = self.layer3(b2)
-        out = F.avg_pool2d(b3, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
+        pool = F.avg_pool2d(b3, 4)
+        pool = pool.view(pool.size(0), -1)
+        pool = self.linear(pool)
 
-        if get_ha:
-            return b1, b2, b3, b3, out
+        if is_feat:
+            b1 = b1.view(b1.size(0), -1)
+            b2 = b2.view(b2.size(0), -1)
+            b3 = b3.view(b3.size(0), -1)
+            return[b1, b2, b3], pool
 
-        return out
+        return pool
 
 
 def resnet8(**kwargs):
