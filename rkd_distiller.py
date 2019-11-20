@@ -110,23 +110,6 @@ class HardDarkRank(nn.Module):
         return loss
 
 
-class FitNet(nn.Module):
-    def __init__(self, in_feature, out_feature):
-        super().__init__()
-        self.in_feature = in_feature
-        self.out_feature = out_feature
-
-        self.transform = nn.Conv2d(in_feature, out_feature, 1, bias=False)
-        self.transform.weight.data.uniform_(-0.005, 0.005)
-
-    def forward(self, student, teacher):
-        if student.dim() == 2:
-            student = student.unsqueeze(2).unsqueeze(3)
-            teacher = teacher.unsqueeze(2).unsqueeze(3)
-
-        return (self.transform(student) - teacher).pow(2).mean()
-
-
 class AttentionTransfer(nn.Module):
     def forward(self, student, teacher):
         s_attention = F.normalize(student.pow(
@@ -340,7 +323,7 @@ class TrainManager(Trainer):
         self.dist_criterion = RkdDistance()
         self.angle_criterion = RKdAngle()
         self.dark_criterion = HardDarkRank(alpha=self.dark_alpha,
-                                      beta=self.dark_beta)
+                                           beta=self.dark_beta)
         self.triplet_criterion = L2Triplet(
             sampler=self.triplet_sample(),
             margin=self.triplet_margin)
@@ -368,7 +351,6 @@ class LinearEmbedding(nn.Module):
         self.linear = nn.Linear(output_size, embedding_size)
         self.normalize = normalize
 
-
     def forward(self, x, get_ha=False):
         if get_ha:
             b1, b2, b3, b4, pool = self.base(x, True)
@@ -387,25 +369,54 @@ class LinearEmbedding(nn.Module):
         return embedding
 
 
+class EmbeddingTrainer(Trainer):
+
+    def __init__(self, net, train_config):
+        super(EmbeddingTrainer, self).__init__(net, train_config)
+        self.optimizer = torch.optim.Adam(net.parameters(),
+                                          lr=1e-5, weight_decay=1e-5)
+        self.loss_fun = L2Triplet(sampler=AllPairs, margin=0.2)
+        embedding_size = train_config["embedding"]
+        output_size = train_config["num_classes"]
+        normalize = train_config["normalize"]
+        self.net = LinearEmbedding(self.net, output_size, embedding_size,
+                                   normalize)
+        self.net = self.net.to(train_config["device"])
+
+    def calculate_loss(self, data, target):
+        # Standard Learning Loss ( Classification Loss)
+        output = self.net(data)
+        loss = self.loss_fun(output, target)
+        loss.backward()
+        self.optimizer.step()
+        return loss
+
+
 def run_relational_kd(s_net, t_net, **params):
 
-    l2normalize = True
-    teacher_embedding_size = 128
-    teacher_l2normalize = True
-    embedding_size = 128
+    params["normalize"] = True
+    params["embedding"] = 128
 
+    # Embedding training teacher
+    print("---------- Training RKD Teacher Embedding -------")
+    t_e_name = params["s_name"]
+    t_e_train_config = copy.deepcopy(params)
+    t_e_train_config["name"] = t_e_name + "_embed"
 
-    s_net = LinearEmbedding(s_net,
-                            output_size=10,
-                            embedding_size=embedding_size,
-                            normalize=l2normalize == 'true')
-    s_net = s_net.to(params["device"])
+    t_e_trainer = EmbeddingTrainer(t_net, t_e_train_config)
+    t_e_trainer.train()
 
-    t_net = LinearEmbedding(t_net,
-                            output_size=10,
-                            embedding_size=teacher_embedding_size,
-                            normalize=teacher_l2normalize)
-    t_net = t_net.to(params["device"])
+    # Embedding training student
+    print("---------- Training RKD Student Embedding -------")
+    s_e__name = params["s_name"]
+    s_e_train_config = copy.deepcopy(params)
+    s_e_train_config["name"] = s_e__name + "_embed"
+    s_e_trainer = EmbeddingTrainer(s_net, s_e_train_config)
+    s_e_trainer.train()
+
+    # get embedded models
+    s_net = s_e_trainer.net
+    t_net = t_e_trainer.net
 
     # Student training
     print("---------- Training RKD Student -------")

@@ -12,10 +12,6 @@ def load_checkpoint(model, checkpoint_path):
     """
     model_ckp = torch.load(checkpoint_path)
     model.load_state_dict(model_ckp["model_state_dict"])
-    torch.save({
-        "model_state_dict": model.model.net.state_dict(),
-        "optimizer_state_dict": model.optimizer.state_dict(),
-    }, "adsasdad")
     return model
 
 
