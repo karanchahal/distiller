@@ -36,8 +36,7 @@ class _Triplet(nn.Module):
         self.size_average = size_average
 
     def forward(self, embeddings, labels):
-        anchor_idx, pos_idx, neg_idx = self.sampler(embeddings, labels)
-
+        anchor_idx, pos_idx, neg_idx = self.sampler()(embeddings, labels)
         anchor_embed = embeddings[anchor_idx]
         positive_embed = embeddings[pos_idx]
         negative_embed = embeddings[neg_idx]
@@ -346,7 +345,8 @@ class TrainManager(Trainer):
 
 
 class LinearEmbedding(nn.Module):
-    def __init__(self, base, output_size=512, embedding_size=128, normalize=True):
+    def __init__(self, base, output_size=512,
+                 embedding_size=128, normalize=True):
         super(LinearEmbedding, self).__init__()
         self.base = base
         self.linear = nn.Linear(output_size, embedding_size)
@@ -399,7 +399,7 @@ def run_relational_kd(s_net, t_net, **params):
 
     # Embedding training teacher
     print("---------- Training RKD Teacher Embedding -------")
-    t_e_name = params["s_name"]
+    t_e_name = params["t_name"]
     t_e_train_config = copy.deepcopy(params)
     t_e_train_config["name"] = t_e_name + "_embed"
 
