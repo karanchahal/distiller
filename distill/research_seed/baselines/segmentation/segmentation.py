@@ -342,8 +342,8 @@ class KD_Segmentation(pl.LightningModule):
         parser.add_argument('--num-classes', default=4, type=float,  help='Num workers for data loader')
         parser.add_argument('--student-model', default='fcn_resnet50', type=str, help='student name')
         parser.add_argument('--teacher-model', default='fcn_resnet101', type=str, help='teacher name')
-        parser.add_argument('--path-to-teacher', default='', type=str, help='teacher chkp path')
-        parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
+        parser.add_argument('--path-to-teacher', default='', type=str, required=True, help='teacher chkp path')
+        parser.add_argument('--temperature', default=5, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
         parser.add_argument('--aux-loss', action='store_true', help='auxiliar loss')
 
