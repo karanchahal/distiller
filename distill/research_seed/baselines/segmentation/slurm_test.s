@@ -11,5 +11,5 @@
 . ~/.bashrc
 cd /scratch/ksc487/distill/nyu-cv-project/distill/research_seed/baselines/segmentation
 conda activate light
-python train.py
+python segmentation_trainer.py --version 1 --path-to-teacher resnet101_chkps/model_29.pth --num-classes 21
 

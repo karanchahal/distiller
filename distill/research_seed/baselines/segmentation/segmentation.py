@@ -13,7 +13,7 @@ import torch.optim as optim
 import pytorch_lightning as pl
 import numpy as np
 from collections import OrderedDict
-
+import torchvision
 from coco_utils import get_coco
 import transforms as T
 import utils
@@ -242,13 +242,13 @@ class KD_Segmentation(pl.LightningModule):
             {"params": [p for p in self.student.classifier.parameters() if p.requires_grad]},
         ]
 
-        if args.aux_loss:
+        if self.hparams.aux_loss:
             params = [p for p in self.student.aux_classifier.parameters() if p.requires_grad]
-            params_to_optimize.append({"params": params, "lr": args.lr * 10})
+            params_to_optimize.append({"params": params, "lr": self.hparams.learning_rate * 10})
 
         self.optimizer = torch.optim.SGD(
             params_to_optimize,
-            lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
+            lr=self.hparams.lr, momentum=self.hparams.momentum, weight_decay=self.hparams.weight_decay)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer,
@@ -286,7 +286,7 @@ class KD_Segmentation(pl.LightningModule):
         else:
             raise ValueError('Dataset not supported !')
 
-        dataset_test, _ = get_dataset(args.dataset, "val", transform_test)
+        dataset_test, _ = get_dataset(self.hparams.dataset, "val", transform_test)
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test)
@@ -308,7 +308,7 @@ class KD_Segmentation(pl.LightningModule):
         else:
             raise ValueError('Dataset not supported !')
 
-        dataset_test, _ = get_dataset(args.dataset, "val", transform_test)
+        dataset_test, _ = get_dataset(self.hparams.dataset, "val", transform_test)
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(dataset_test)
@@ -338,14 +338,19 @@ class KD_Segmentation(pl.LightningModule):
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
         parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
-        parser.add_argument('--num-workers', default=4, type=float,  help='Num workers for data loader')
-        parser.add_argument('--num-classes', default=4, type=float,  help='Num workers for data loader')
+        parser.add_argument('--num-workers', default=8, type=float,  help='Num workers for data loader')
+        parser.add_argument('--num-classes', default=21, type=float,  help='Num workers for data loader')
         parser.add_argument('--student-model', default='fcn_resnet50', type=str, help='student name')
         parser.add_argument('--teacher-model', default='fcn_resnet101', type=str, help='teacher name')
         parser.add_argument('--path-to-teacher', default='', type=str, required=True, help='teacher chkp path')
         parser.add_argument('--temperature', default=5, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
         parser.add_argument('--aux-loss', action='store_true', help='auxiliar loss')
-
+        parser.add_argument(
+            "--pretrained",
+            dest="pretrained",
+            help="Use pre-trained models from the modelzoo",
+            action="store_true",
+        )
         return parser
 
