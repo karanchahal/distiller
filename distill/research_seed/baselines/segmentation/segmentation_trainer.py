@@ -30,6 +30,7 @@ def main(hparams):
 
     # most basic trainer, uses good defaults
     if hparams.gpus > 1:
+    
       dist = 'ddp'
     else:
       dist = None
