@@ -1,3 +1,5 @@
 datasets01
 cocoapi
 resnet*
+lightning_logs/
+slurm_5*

@@ -95,6 +95,14 @@ class ConfusionMatrix(object):
             return
         torch.distributed.barrier()
         torch.distributed.all_reduce(self.mat)
+    
+    def stats(self):
+        acc_global, acc, iu = self.compute()
+        global_correct = acc_global.item() * 100
+        average_row_correct = ['{:.1f}'.format(i) for i in (acc * 100).tolist()]
+        IoU = ['{:.1f}'.format(i) for i in (iu * 100).tolist()]
+        mean_iou = iu.mean().item() * 100
+        return global_correct, average_row_correct, IoU, mean_iou
 
     def __str__(self):
         acc_global, acc, iu = self.compute()
@@ -109,15 +117,6 @@ class ConfusionMatrix(object):
                 ['{:.1f}'.format(i) for i in (iu * 100).tolist()],
                 iu.mean().item() * 100)
 
-    def get_stats(self):
-        acc_global, acc, iu = self.compute()
-        global_correct = acc_global.item() * 100
-        average_row_correct = ['{:.1f}'.format(i) for i in (acc * 100).tolist()]
-        IoU = ['{:.1f}'.format(i) for i in (iu * 100).tolist()]
-        mean_iou = iu.mean().item() * 100
-
-        return global_correct, average_row_correct, IoU, mean_iou
-        
 class KD_Segmentation(pl.LightningModule):
 
     def __init__(self, student, teacher, hparams):
@@ -131,7 +130,7 @@ class KD_Segmentation(pl.LightningModule):
         self.teacher.eval()
         self.student.train()
 
-        self.confmat = utils.ConfusionMatrix(hparams.num_classes)
+        self.confmat = ConfusionMatrix(self.hparams.num_classes)
 
 
     def criterion(self, inputs, target):
@@ -156,7 +155,7 @@ class KD_Segmentation(pl.LightningModule):
         
         alpha = self.hparams.alpha
         T = self.hparams.temperature
-
+        losses = {}
         for (name, x), (_, t_x) in zip(outputs.items(), teacher_outputs.items()):
             losses[name] = nn.KLDivLoss()(F.log_softmax(x/T, dim=1),
                                 F.softmax(t_x/T, dim=1)) * (alpha * T * T) + \
@@ -197,16 +196,16 @@ class KD_Segmentation(pl.LightningModule):
         
         x, y = batch
 
-        y_student = self.forward(x, 'student')
+        y_output = self.forward(x, 'student')
 
         output = y_output['out']
 
         self.confmat.update(y.flatten(), output.argmax(1).flatten())
         
-        loss = self.criterion(y_student, y)
+        loss = self.criterion(y_output, y)
 
         return {
-            'loss': loss,
+            'val_loss': loss,
             'log' : {
                 'val_loss' : loss.item()
             } 
@@ -218,9 +217,9 @@ class KD_Segmentation(pl.LightningModule):
 
         print(self.confmat)
 
-        global_correct, average_row_correct, IoU, mean_iou = self.confmat.get_stats()
+        global_correct, average_row_correct, IoU, mean_iou = self.confmat.stats()
 
-        self.confmat = utils.ConfusionMatrix(hparams.num_classes) # reset
+        self.confmat = ConfusionMatrix(self.hparams.num_classes) # reset
 
         # back to training
         self.student.train()
@@ -228,6 +227,7 @@ class KD_Segmentation(pl.LightningModule):
         return {
             'val_loss': avg_loss,
             'log': {
+                "val_avg_loss": avg_loss.item(),
                 "iou": mean_iou,
                 "global_correct": global_correct,
             }
@@ -248,11 +248,11 @@ class KD_Segmentation(pl.LightningModule):
 
         self.optimizer = torch.optim.SGD(
             params_to_optimize,
-            lr=self.hparams.lr, momentum=self.hparams.momentum, weight_decay=self.hparams.weight_decay)
+            lr=self.hparams.learning_rate, momentum=self.hparams.momentum, weight_decay=self.hparams.weight_decay)
 
         self.scheduler = torch.optim.lr_scheduler.LambdaLR(
             self.optimizer,
-            lambda x: (1 - x / (len(self.train_dataloader) * self.hparams.epochs)) ** 0.9)
+            lambda x: (1 - x / (183 * self.hparams.epochs)) ** 0.9)
 
         return [self.optimizer], [self.scheduler]
 
@@ -271,12 +271,13 @@ class KD_Segmentation(pl.LightningModule):
         else:
             dist_sampler = None
 
-        data_loader_train = torch.utils.data.DataLoader(
+        self.data_loader_train = torch.utils.data.DataLoader(
             dataset_train, batch_size=self.hparams.batch_size,
             sampler=dist_sampler, num_workers=self.hparams.num_workers,
             collate_fn=utils.collate_fn, drop_last=True)
+        print("Length: ", len(self.data_loader_train))
 
-        return data_loader_train
+        return self.data_loader_train
 
     @pl.data_loader
     def val_dataloader(self):
@@ -338,8 +339,8 @@ class KD_Segmentation(pl.LightningModule):
         parser.add_argument('--weight-decay', default=1e-4, type=float, help='SGD weight decay (default: 1e-4)')
         parser.add_argument('--dataset-dir', default='./data', type=str,  help='dataset directory')
         parser.add_argument('--optim', default='adam', type=str, help='Optimizer')
-        parser.add_argument('--num-workers', default=8, type=float,  help='Num workers for data loader')
-        parser.add_argument('--num-classes', default=21, type=float,  help='Num workers for data loader')
+        parser.add_argument('--num-workers', default=8, type=int,  help='Num workers for data loader')
+        parser.add_argument('--num-classes', default=21, type=int,  help='Num workers for data loader')
         parser.add_argument('--student-model', default='fcn_resnet50', type=str, help='student name')
         parser.add_argument('--teacher-model', default='fcn_resnet101', type=str, help='teacher name')
         parser.add_argument('--path-to-teacher', default='', type=str, required=True, help='teacher chkp path')
