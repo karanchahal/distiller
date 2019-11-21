@@ -149,6 +149,7 @@ def main(args):
     if args.aux_loss:
         params = [p for p in model_without_ddp.aux_classifier.parameters() if p.requires_grad]
         params_to_optimize.append({"params": params, "lr": args.lr * 10})
+        
     optimizer = torch.optim.SGD(
         params_to_optimize,
         lr=args.lr, momentum=args.momentum, weight_decay=args.weight_decay)
