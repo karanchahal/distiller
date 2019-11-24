@@ -57,18 +57,22 @@ class RKD_Cifar(pl.LightningModule):
         self.hparams = hparams
         self.mode = mode
 
-        if self.mode == Train_Mode.STUDENT:
-            raise ValueError("No implemented yet !")
-        elif self.mode == Train_Mode.TEACHER:
+        if self.mode == Train_Mode.TEACHER:
             for m in student_base.modules():
                 m.requires_grad = False
             self.student = addEmbedding(student_base, hparams)
             self.student.train()
+        elif self.mode == Train_Mode.STUDENT:
+            self.teacher = teacher_base
+            self.student = addEmbedding(student_base, hparams)
+            self.student.train()
+            self.teacher.eval()
 
 
         if self.mode == Train_Mode.STUDENT:
             self.criterionFM = losses.L2Triplet(sampler=hparams.sample(), margin=hparams.margin)
             
+        # self.criterion = nn.CrossEntropyLoss()
 
         self.train_step = 0
         self.train_num_correct = 0
@@ -118,6 +122,24 @@ class RKD_Cifar(pl.LightningModule):
             loss_metrics = {
                 'train_loss' : loss.item(),
             }
+        elif self.mode == Train_Mode.STUDENT:
+            
+            t_e = self.teacher(x)
+            s_e = self.student(x)
+
+            triplet_loss = opts.triplet_ratio * triplet_criterion(s_e, y)
+            dist_loss = opts.dist_ratio * dist_criterion(s_e, t_e)
+            angle_loss = opts.angle_ratio * angle_criterion(s_e, t_e)
+            dark_loss = opts.dark_ratio * dark_criterion(s_e, t_e)
+
+            loss = triplet_loss + dist_loss + angle_loss + dark_loss
+
+            loss_metrics = {
+                'train_loss' : loss.item(),
+                'triplet_loss': triplet_loss.item(),
+                'angle_loss' : angle_loss.item(),
+                'dark_loss' : dark_loss.item(),
+            }
 
         return {
             'loss': loss,
@@ -162,13 +184,17 @@ class RKD_Cifar(pl.LightningModule):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
 
-        self.optimizer = optim.Adam(self.student.parameters(), lr=self.hparams.lr, weight_decay=1e-5)
-        self.scheduler = optim.lr_scheduler.MultiStepLR(
-                        self.optimizer, milestones=self.hparams.lr_decay_epochs, 
-                        gamma=self.hparams.lr_decay_gamma)
+        if self.hparams.optim == 'adam':
+            optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
+        elif self.hparams.optim == 'sgd':
+            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, 
+            weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
+        else:
+            raise ValueError('No such optimizer, please use adam or sgd')
+ 
+        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min',patience=5,factor=0.5,verbose=True)
+        return optimizer
         
-        return self.optimizer
-
     @pl.data_loader
     def train_dataloader(self):
 
