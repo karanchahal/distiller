@@ -66,7 +66,7 @@ class RKD_Cifar(pl.LightningModule):
             self.student.train()
 
 
-        if self.mode == Train_Mode.STUDENT:
+        if self.mode == Train_Mode.TEACHER:
             self.criterionFM = losses.L2Triplet(sampler=hparams.sample(), margin=hparams.margin)
             
 
