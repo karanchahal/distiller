@@ -153,7 +153,9 @@ class RKD_Cifar(pl.LightningModule):
                     "recall" : rec[0],
                     "val_loss": avg_loss.item(),
             }
-            
+        
+        self.embeddings_all, self.labels_all = [], []
+        
         return { 'val_loss': avg_loss, 'log': log_metrics}
         
 
