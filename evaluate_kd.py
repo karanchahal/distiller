@@ -11,9 +11,6 @@ from optimizer import get_optimizer, get_scheduler
 
 BATCH_SIZE = 128
 
-MODES = ["KD", "RKD", "AB", "TAKD", "NOKD", "PKD", "OH"]
-
-
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Knowledge Distillation Params")
@@ -129,6 +126,12 @@ def test_oh(s_net, t_net, params):
     return best_oh_acc
 
 
+def test_fd(s_net, t_net, params):
+    # Arguments specifically for the ab approach
+    best_fd_acc = run_fd_distillation(s_net, t_net, **params)
+    return best_fd_acc
+
+
 def run_benchmarks(mode, params):
     t_name = params["t_name"]
     s_name = params["s_name"]
@@ -156,6 +159,9 @@ def run_benchmarks(mode, params):
     elif mode.lower() == "oh":
         best_oh_acc = test_oh(s_net, t_net, params)
         print(f"Best results oh method {s_name}: {best_oh_acc}")
+    elif mode.lower() == "fd":
+        best_fd_acc = test_fd(s_net, t_net, params)
+        print(f"Best results fd method {s_name}: {best_fd_acc}")
     else:
         raise RuntimeError("Training mode not supported!")
     print(f"Best results teacher {t_name}: {best_t_acc}")
