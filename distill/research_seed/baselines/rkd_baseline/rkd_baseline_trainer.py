@@ -10,8 +10,9 @@ from research_seed.baselines.model.model_factory import create_cnn_model, is_res
 
 def main(hparams):
     # init module
-
-    teacher_base = create_cnn_model(hparams.teacher_model, feature_maps=True)
+    teacher_base = create_cnn_model(hparams.teacher_model, feature_maps=True, dataset=hparams.dataset)
+        
+    # Loading from checkpoint
     teacher_base = load_model_chk(teacher_base, hparams.path_to_teacher)
 
     # Train Teacher Embedding
