@@ -304,6 +304,6 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--recall', default=[1], type=int, nargs='+')
         parser.add_argument('--save_dir', default=None)
         parser.add_argument('--load', default=None)
-
+        parser.add_argument('--margin', type=float, default=0.2)
 
         return parser

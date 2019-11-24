@@ -70,9 +70,10 @@ class RKD_Cifar(pl.LightningModule):
 
 
         if self.mode == Train_Mode.STUDENT:
-            self.criterionFM = losses.L2Triplet(sampler=hparams.sample(), margin=hparams.margin)
+            self.criterionFM = losses.L2Triplet(sampler=self.hparams.sample(), margin=self.hparams.margin)
+        elif self.mode == Train_Mode.STUDENT:
+
             
-        # self.criterion = nn.CrossEntropyLoss()
 
         self.train_step = 0
         self.train_num_correct = 0
@@ -330,6 +331,7 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--recall', default=[1], type=int, nargs='+')
         parser.add_argument('--save_dir', default=None)
         parser.add_argument('--load', default=None)
+        parser.add_argument('--margin', type=float, default=0.2)
 
 
         return parser
