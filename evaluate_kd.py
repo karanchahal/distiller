@@ -11,6 +11,7 @@ from optimizer import get_optimizer, get_scheduler
 
 BATCH_SIZE = 128
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(
         description="Knowledge Distillation Params")
@@ -33,8 +34,8 @@ def parse_arguments():
     parser.add_argument("--teacher-checkpoint", default="",
                         dest="t_checkpoint", type=str,
                         help="optional pretrained checkpoint for teacher")
-    parser.add_argument("--mode", default="KD", choices=MODES,
-                        dest="mode", type=str,
+    parser.add_argument("--mode", default=["KD"], dest="modes",
+                        type=str, nargs='+',
                         help="What type of distillation to use")
     args = parser.parse_args()
     return args
@@ -132,39 +133,36 @@ def test_fd(s_net, t_net, params):
     return best_fd_acc
 
 
-def run_benchmarks(mode, params):
+def run_benchmarks(modes, params):
     t_name = params["t_name"]
     s_name = params["s_name"]
     t_net, best_t_acc = init_teacher(t_name, params)
     s_net = init_student(t_name, params)
 
-    if mode.lower() == "nokd":
-        best_kd_acc = test_nokd(s_net, params)
-        print(f"Best results with no kd {s_name}: {best_kd_acc}")
-    if mode.lower() == "kd":
-        best_kd_acc = test_kd(s_net, t_net, params)
-        print(f"Best results kd method {s_name}: {best_kd_acc}")
-    elif mode.lower() == "takd":
-        best_takd_acc = test_ta(s_net, t_net, params)
-        print(f"Best results takd method {s_name}: {best_takd_acc}")
-    elif mode.lower() == "ab":
-        best_ab_acc = test_ab(s_net, t_net, params)
-        print(f"Best results ab method {s_name}: {best_ab_acc}")
-    elif mode.lower() == "rkd":
-        best_rkd_acc = test_rkd(s_net, t_net, params)
-        print(f"Best results rkd method {s_name}: {best_rkd_acc}")
-    elif mode.lower() == "pkd":
-        best_pkd_acc = test_pkd(s_net, t_net, params)
-        print(f"Best results pkd method {s_name}: {best_pkd_acc}")
-    elif mode.lower() == "oh":
-        best_oh_acc = test_oh(s_net, t_net, params)
-        print(f"Best results oh method {s_name}: {best_oh_acc}")
-    elif mode.lower() == "fd":
-        best_fd_acc = test_fd(s_net, t_net, params)
-        print(f"Best results fd method {s_name}: {best_fd_acc}")
-    else:
-        raise RuntimeError("Training mode not supported!")
+    results = {}
+    for mode in modes:
+        if mode.lower() == "nokd":
+            results[mode] = test_nokd(s_net, params)
+        if mode.lower() == "kd":
+            results[mode] = test_kd(s_net, t_net, params)
+        elif mode.lower() == "takd":
+            results[mode] = test_ta(s_net, t_net, params)
+        elif mode.lower() == "ab":
+            results[mode] = test_ab(s_net, t_net, params)
+        elif mode.lower() == "rkd":
+            results[mode] = test_rkd(s_net, t_net, params)
+        elif mode.lower() == "pkd":
+            results[mode] = test_pkd(s_net, t_net, params)
+        elif mode.lower() == "oh":
+            results[mode] = test_oh(s_net, t_net, params)
+        elif mode.lower() == "fd":
+            results[mode] = test_fd(s_net, t_net, params)
+        else:
+            raise RuntimeError(f"Training mode {mode} not supported!")
+
     print(f"Best results teacher {t_name}: {best_t_acc}")
+    for name, acc in results.items():
+        print(f"Best results for {s_name} with {name} method: {acc}")
 
 
 def setup_torch():
@@ -206,7 +204,7 @@ def start_evaluation(args):
     # Retrieve preconfigured optimizers and schedulers for all runs
     params["optim"] = get_optimizer("SGD", params)
     params["sched"] = get_scheduler("multisteplr", params)
-    run_benchmarks(args.mode, params)
+    run_benchmarks(args.modes, params)
 
 
 if __name__ == "__main__":

@@ -2,7 +2,7 @@ import copy
 import math
 import torch
 import torch.nn as nn
-from trainer import load_checkpoint, BaseTrainer
+from trainer import BaseTrainer
 
 
 def distillation_loss(source, target):
@@ -67,13 +67,11 @@ class Distiller(nn.Module):
         t_feats = self.get_features(self.t_feat_layers, x)
         s_feats = self.get_features(self.s_feat_layers, x)
 
-        t_feats_num = len(t_feats)
-        s_feats_num = len(s_feats)
         loss_distill = 0
-        for i in range(s_feats_num):
-            s_feats[i] = self.Connectors[i](s_feats[i])
-            kd_loss = distillation_loss(s_feats[i], t_feats[i].detach())
-            loss_distill += kd_loss / 2 ** (t_feats_num - i - 1)
+        for idx, s_feat in enumerate(s_feats):
+            s_feat = self.Connectors[idx](s_feat)
+            kd_loss = distillation_loss(s_feat, t_feats[idx].detach())
+            loss_distill += kd_loss / 2 ** (len(t_feats) - idx - 1)
 
         s_out = self.s_net(x)
         if is_loss:
@@ -88,10 +86,8 @@ class FDTrainer(BaseTrainer):
         self.s_net = self.net
 
     def calculate_loss(self, data, target):
-
         outputs, loss_distill = self.s_net(data, is_loss=True)
         loss_CE = self.loss_fun(outputs, target)
-
         loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
 
         loss.backward()
