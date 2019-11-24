@@ -158,9 +158,10 @@ class PreActBottleneck(nn.Module):
 
 class ResNet_Cifar(nn.Module):
 
-    def __init__(self, block, layers, num_classes=10):
+    def __init__(self, block, layers, num_classes=10, feature_maps = False):
         super(ResNet_Cifar, self).__init__()
         self.inplanes = 16
+        self.feature_maps = feature_maps
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(16)
@@ -201,12 +202,16 @@ class ResNet_Cifar(nn.Module):
         x = self.bn1(x)
         x = self.relu(x)
 
-        x = self.layer1(x)
-        x = self.layer2(x)
-        x = self.layer3(x)
+        l1 = self.layer1(x)
+        l2 = self.layer2(l1)
+        l3 = self.layer3(l2)
 
-        x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
+        pool = self.avgpool(l3)
+
+        if self.feature_maps:
+            return pool, l1, l2, l3
+
+        x = pool.view(pool.size(0), -1)
         x = self.fc(x)
 
         return x
@@ -214,9 +219,10 @@ class ResNet_Cifar(nn.Module):
 
 class PreAct_ResNet_Cifar(nn.Module):
 
-    def __init__(self, block, layers, num_classes=10):
+    def __init__(self, block, layers, num_classes=10, feature_maps=False):
         super(PreAct_ResNet_Cifar, self).__init__()
         self.inplanes = 16
+        self.feature_maps = feature_maps
         self.conv1 = nn.Conv2d(3, 16, kernel_size=3,
                                stride=1, padding=1, bias=False)
         self.layer1 = self._make_layer(block, 16, layers[0])

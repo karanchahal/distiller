@@ -5,17 +5,21 @@ from pytorch_lightning import Trainer
 from argparse import ArgumentParser
 from research_seed.baselines.rkd_baseline.rkd_baseline import RKD_Cifar
 from pytorch_lightning.logging import TestTubeLogger
-
+from research_seed.baselines.rkd_baseline.rkd_baseline import load_model_chk
 def main(hparams):
     # init module
 
-    model1 = RKD_Cifar(hparams, "teacher")
-    model2 = RKD_Cifar(hparams, "student")
-    model = RKD_Cifar(hparams)
+    teacher_base = create_cnn_model(hparams.teacher_model, feature_maps=True)
+    teacher_base = load_model_chk(teacher_base, hparams.path_to_teacher)
+
+    # Train Teacher Embedding
+    trained_teacher_with_embed = RKD_Cifar(student=teacher_base, hparams)
+
     logger = TestTubeLogger(
        save_dir=hparams.save_dir,
        version=hparams.version # An existing version with a saved checkpoint
     )
+
     # most basic trainer, uses good defaults
     if hparams.gpus > 1:
       dist = 'ddp'
@@ -33,9 +37,7 @@ def main(hparams):
         distributed_backend=dist,
     )
 
-    trainer.fit(model)
-
-
+    trainer.fit(trained_teacher_with_embed)
 
 
 if __name__ == '__main__':

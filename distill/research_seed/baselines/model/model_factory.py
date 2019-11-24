@@ -12,7 +12,7 @@ def is_resnet(name):
 	return name.startswith('resnet')
 
 
-def create_cnn_model(name, dataset="cifar100"):
+def create_cnn_model(name, dataset="cifar100", feature_maps=False):
 	"""
 	Create a student for training, given student name and dataset
 	:param name: name of the student. e.g., resnet110, resnet32, plane2, plane10, ...
@@ -23,9 +23,8 @@ def create_cnn_model(name, dataset="cifar100"):
 	model = None
 	if is_resnet(name):
 		resnet_size = name[6:]
-		resnet_model = resnet_book.get(resnet_size)(num_classes=num_classes)
+		resnet_model = resnet_book.get(resnet_size)(num_classes=num_classes, feature_maps=feature_maps)
 		model = resnet_model
-		
 	else:
 		plane_size = name[5:]
 		model_spec = plane_cifar10_book.get(plane_size) if num_classes == 10 else plane_cifar100_book.get(plane_size)
