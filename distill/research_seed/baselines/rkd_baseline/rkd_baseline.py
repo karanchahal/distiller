@@ -18,6 +18,7 @@ import losses
 import pairs
 from enum import Enum
 from embedding import LinearEmbedding
+import argparse
 
 class Train_Mode(Enum):
     TEACHER = 1
@@ -290,13 +291,11 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--l2normalize', choices=['true', 'false'], default='true')
         parser.add_argument('--embedding_size', default=128, type=int)
 
-        parser.add_argument('--teacher_load', default=None, required=True)
         parser.add_argument('--teacher_l2normalize', choices=['true', 'false'], default='true')
         parser.add_argument('--teacher_embedding_size', default=128, type=int)
 
         parser.add_argument('--lr', default=1e-4, type=float)
         parser.add_argument('--data', default='data')
-        parser.add_argument('--epochs', default=80, type=int)
         parser.add_argument('--batch', default=64, type=int)
         parser.add_argument('--iter_per_epoch', default=100, type=int)
         parser.add_argument('--lr_decay_epochs', type=int, default=[40, 60], nargs='+')

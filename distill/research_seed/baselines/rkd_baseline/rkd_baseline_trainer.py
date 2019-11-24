@@ -6,6 +6,8 @@ from argparse import ArgumentParser
 from research_seed.baselines.rkd_baseline.rkd_baseline import RKD_Cifar
 from pytorch_lightning.logging import TestTubeLogger
 from research_seed.baselines.rkd_baseline.rkd_baseline import load_model_chk
+from research_seed.baselines.model.model_factory import create_cnn_model, is_resnet
+
 def main(hparams):
     # init module
 
@@ -13,7 +15,7 @@ def main(hparams):
     teacher_base = load_model_chk(teacher_base, hparams.path_to_teacher)
 
     # Train Teacher Embedding
-    trained_teacher_with_embed = RKD_Cifar(student=teacher_base, hparams)
+    trained_teacher_with_embed = RKD_Cifar(student=teacher_base, hparams=hparams)
 
     logger = TestTubeLogger(
        save_dir=hparams.save_dir,
