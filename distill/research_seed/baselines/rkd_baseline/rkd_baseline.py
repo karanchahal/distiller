@@ -155,23 +155,20 @@ class RKD_Cifar(pl.LightningModule):
             }
         
         self.embeddings_all, self.labels_all = [], []
-        
+
         return { 'val_loss': avg_loss, 'log': log_metrics}
         
 
     def configure_optimizers(self):
         # REQUIRED
         # can return multiple optimizers and learning_rate schedulers
-        if self.hparams.optim == 'adam':
-            optimizer = torch.optim.Adam(self.student.parameters(), lr=self.hparams.learning_rate)
-        elif self.hparams.optim == 'sgd':
-            optimizer = torch.optim.SGD(self.student.parameters(), nesterov=True, momentum=self.hparams.momentum, 
-            weight_decay=self.hparams.weight_decay, lr=self.hparams.learning_rate)
-        else:
-            raise ValueError('No such optimizer, please use adam or sgd')
- 
-        self.scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=5, factor=0.5, verbose=True)
-        return optimizer
+
+        self.optimizer = optim.Adam(self.student.parameters(), lr=self.hparams.lr, weight_decay=1e-5)
+        self.scheduler = optim.lr_scheduler.MultiStepLR(
+                        self.optimizer, milestones=self.hparams.lr_decay_epochs, 
+                        gamma=self.hparams.lr_decay_gamma)
+        
+        return self.optimizer
 
     @pl.data_loader
     def train_dataloader(self):
@@ -296,13 +293,15 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--teacher_l2normalize', choices=['true', 'false'], default='true')
         parser.add_argument('--teacher_embedding_size', default=128, type=int)
 
-        parser.add_argument('--lr', default=1e-4, type=float)
+                
+        parser.add_argument('--lr', default=1e-5, type=float)
+        parser.add_argument('--lr_decay_epochs', type=int,
+                            default=[25, 30, 35], nargs='+')
+        parser.add_argument('--lr_decay_gamma', default=0.5, type=float)
         parser.add_argument('--data', default='data')
         parser.add_argument('--batch', default=64, type=int)
         parser.add_argument('--iter_per_epoch', default=100, type=int)
-        parser.add_argument('--lr_decay_epochs', type=int, default=[40, 60], nargs='+')
         parser.add_argument('--output-size', type=int, default=4096)
-        parser.add_argument('--lr_decay_gamma', type=float, default=0.1)
         parser.add_argument('--recall', default=[1], type=int, nargs='+')
         parser.add_argument('--save_dir', default=None)
         parser.add_argument('--load', default=None)
