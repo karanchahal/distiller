@@ -100,16 +100,16 @@ class ResNet(nn.Module):
         b4 = self.layer4(b3)
         pool = F.avg_pool2d(b4, 4)
         pool = pool.view(pool.size(0), -1)
-        pool = self.linear(pool)
+        out = self.linear(pool)
 
         if is_feat:
             b1 = b1.view(b1.size(0), -1)
             b2 = b2.view(b2.size(0), -1)
             b3 = b3.view(b3.size(0), -1)
             b4 = b4.view(b4.size(0), -1)
-            return[b1, b2, b3, b4], pool
+            return[b1, b2, b3, b4], pool, out
 
-        return pool
+        return out
 
 
 class ResNetSmall(nn.Module):
@@ -140,15 +140,15 @@ class ResNetSmall(nn.Module):
         b3 = self.layer3(b2)
         pool = F.avg_pool2d(b3, 4)
         pool = pool.view(pool.size(0), -1)
-        pool = self.linear(pool)
+        out = self.linear(pool)
 
         if is_feat:
             b1 = b1.view(b1.size(0), -1)
             b2 = b2.view(b2.size(0), -1)
             b3 = b3.view(b3.size(0), -1)
-            return[b1, b2, b3], pool
+            return[b1, b2, b3], pool, out
 
-        return pool
+        return out
 
 
 def resnet8(**kwargs):

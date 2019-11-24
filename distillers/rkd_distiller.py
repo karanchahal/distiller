@@ -398,6 +398,7 @@ class EmbeddingTrainer(Trainer):
         # Standard Learning Loss ( Classification Loss)
         output = self.net(data)
         loss = self.loss_fun(output, target)
+        self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
         return loss
@@ -417,16 +418,7 @@ def run_relational_kd(s_net, t_net, **params):
     t_e_trainer = EmbeddingTrainer(t_net, t_e_train_config)
     t_e_trainer.train()
 
-    # Embedding training student
-    print("---------- Training RKD Student Embedding -------")
-    s_e__name = params["s_name"]
-    s_e_train_config = copy.deepcopy(params)
-    s_e_train_config["name"] = s_e__name + "_embed"
-    s_e_trainer = EmbeddingTrainer(s_net, s_e_train_config)
-    s_e_trainer.train()
-
     # get embedded models
-    s_net = s_e_trainer.net
     t_net = t_e_trainer.net
 
     # Student training

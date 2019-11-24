@@ -119,7 +119,6 @@ class DistillTrainer(BaseTrainer):
                                    weight_decay=5e-4)
 
     def calculate_loss(self, data, target):
-        self.optimizer.zero_grad()
 
         batch_size = data.shape[0]
         self.d_net(data)
