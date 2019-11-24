@@ -20,6 +20,7 @@ from enum import Enum
 from embedding import LinearEmbedding
 import argparse
 from metrics import recall, pdist
+from losses import HardDarkRank, RkdDistance, RKdAngle, L2Triplet, AttentionTransfer
 
 class Train_Mode(Enum):
     TEACHER = 1
@@ -49,6 +50,28 @@ def addEmbedding(base, hparams):
     return embed
 
 
+def findNumCorrect(embed, labels, K=[1]):
+    D = pdist(embed, squared=True)
+    knn_inds = D.topk(1 + max(K), dim=1, largest=False, sorted=True)[1][:, 1:]
+
+    """
+    Check if, knn_inds contain index of query image.
+    """
+    assert ((knn_inds == torch.arange(0, len(labels), device=knn_inds.device).unsqueeze(1)).sum().item() == 0)
+
+    selected_labels = labels[knn_inds.contiguous().view(-1)].view_as(knn_inds)
+    correct_labels = labels.unsqueeze(1) == selected_labels
+
+    correct_k = (correct_labels[:, :1].sum(dim=1) > 0).float().mean().item()
+
+    return correct_k
+    # recall_k = []
+
+    # for k in K:
+    #     correct_k = (correct_labels[:, :k].sum(dim=1) > 0).float().mean().item()
+    #     recall_k.append(correct_k)
+    # return recall_k
+
 class RKD_Cifar(pl.LightningModule):
 
     def __init__(self, student_base, teacher_base=None, hparams=None, mode=Train_Mode.TEACHER):
@@ -64,15 +87,18 @@ class RKD_Cifar(pl.LightningModule):
             self.student.train()
         elif self.mode == Train_Mode.STUDENT:
             self.teacher = teacher_base
-            self.student = addEmbedding(student_base, hparams)
+            self.student = student_base
             self.student.train()
             self.teacher.eval()
 
 
-        if self.mode == Train_Mode.STUDENT:
+        if self.mode == Train_Mode.TEACHER:
             self.criterionFM = losses.L2Triplet(sampler=self.hparams.sample(), margin=self.hparams.margin)
         elif self.mode == Train_Mode.STUDENT:
-
+            self.dist_criterion = RkdDistance()
+            self.angle_criterion = RKdAngle()
+            self.dark_criterion = HardDarkRank(alpha=self.hparams.dark_alpha, beta=self.hparams.dark_beta)
+            self.triplet_criterion = L2Triplet(sampler=self.hparams.triplet_sample(), margin=self.hparams.triplet_margin)
             
 
         self.train_step = 0
@@ -123,23 +149,27 @@ class RKD_Cifar(pl.LightningModule):
             loss_metrics = {
                 'train_loss' : loss.item(),
             }
+
         elif self.mode == Train_Mode.STUDENT:
             
             t_e = self.teacher(x)
             s_e = self.student(x)
 
-            triplet_loss = opts.triplet_ratio * triplet_criterion(s_e, y)
-            dist_loss = opts.dist_ratio * dist_criterion(s_e, t_e)
-            angle_loss = opts.angle_ratio * angle_criterion(s_e, t_e)
-            dark_loss = opts.dark_ratio * dark_criterion(s_e, t_e)
+            triplet_loss = self.hparams.triplet_ratio * self.triplet_criterion(s_e, y)
+            dist_loss = self.hparams.dist_ratio * self.dist_criterion(s_e, t_e)
+            angle_loss = self.hparams.angle_ratio * self.angle_criterion(s_e, t_e)
+            dark_loss = self.hparams.dark_ratio * self.dark_criterion(s_e, t_e)
 
             loss = triplet_loss + dist_loss + angle_loss + dark_loss
+
+            acc = findNumCorrect(s_e, y)
 
             loss_metrics = {
                 'train_loss' : loss.item(),
                 'triplet_loss': triplet_loss.item(),
                 'angle_loss' : angle_loss.item(),
                 'dark_loss' : dark_loss.item(),
+                'accuracy' : acc,
             }
 
         return {
@@ -161,6 +191,27 @@ class RKD_Cifar(pl.LightningModule):
             return {
                 'val_loss': val_loss,
             }
+        elif self.mode == Train_Mode.STUDENT:
+            
+            t_e = self.teacher(x)
+            s_e = self.student(x)
+
+            triplet_loss = self.hparams.triplet_ratio * self.triplet_criterion(s_e, y)
+            dist_loss = self.hparams.dist_ratio * self.dist_criterion(s_e, t_e)
+            angle_loss = self.hparams.angle_ratio * self.angle_criterion(s_e, t_e)
+            dark_loss = self.hparams.dark_ratio * self.dark_criterion(s_e, t_e)
+
+            loss = triplet_loss + dist_loss + angle_loss + dark_loss
+
+            acc = findNumCorrect(s_e, y)
+
+            return {
+                'val_loss' : loss,
+                'val_triplet_loss': triplet_loss,
+                'val_angle_loss' : angle_loss,
+                'val_dark_loss' : dark_loss,
+                'accuracy': acc,
+            }
 
     def validation_end(self, outputs):
         # OPTIONAL
@@ -175,8 +226,23 @@ class RKD_Cifar(pl.LightningModule):
                     "recall" : rec[0],
                     "val_loss": avg_loss.item(),
             }
+        elif self.mode == Train_Mode.STUDENT:
+            avg_triplet_loss = torch.stack([x['val_triplet_loss'] for x in outputs]).mean()
+            avg_angle_loss = torch.stack([x['val_angle_loss'] for x in outputs]).mean()
+            avg_dark_loss = torch.stack([x['val_dark_loss'] for x in outputs]).mean()
+            log_metrics = {
+                    "val_triplet_loss" : avg_triplet_loss.item(),
+                    "val_angle_loss": avg_angle_loss.item(),
+                    "val_dark_loss": avg_dark_loss.item(),
+            }
         
         self.embeddings_all, self.labels_all = [], []
+
+        self.train_step = 0
+        self.train_num_correct = 0
+
+        self.val_step = 0
+        self.val_num_correct = 0
 
         return { 'val_loss': avg_loss, 'log': log_metrics}
         
@@ -284,9 +350,9 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
 
-        parser.add_argument('--triplet_ratio', default=0, type=float)
-        parser.add_argument('--dist_ratio', default=0, type=float)
-        parser.add_argument('--angle_ratio', default=0, type=float)
+        parser.add_argument('--triplet_ratio', default=1, type=float)
+        parser.add_argument('--dist_ratio', default=1, type=float)
+        parser.add_argument('--angle_ratio', default=1, type=float)
 
         parser.add_argument('--dark_ratio', default=0, type=float)
         parser.add_argument('--dark_alpha', default=2, type=float)
