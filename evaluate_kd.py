@@ -11,7 +11,7 @@ from optimizer import get_optimizer, get_scheduler
 
 BATCH_SIZE = 128
 
-MODES = ["KD", "RKD", "AB", "TAKD", "NOKD", "PKD"]
+MODES = ["KD", "RKD", "AB", "TAKD", "NOKD", "PKD", "OH"]
 
 
 def parse_arguments():
@@ -101,7 +101,7 @@ def test_ta(s_net, t_net, params):
     params["ta_name"] = "resnet8"
     ta_model = create_cnn_model(
         params["ta_name"], num_classes, params["device"])
-    best_ta_acc = run_teacher_assistant(s_net, ta_model, t_net, **params)
+    best_ta_acc = run_takd_distillation(s_net, ta_model, t_net, **params)
     return best_ta_acc
 
 
@@ -113,14 +113,20 @@ def test_ab(s_net, t_net, params):
 
 def test_rkd(s_net, t_net, params):
     # Arguments specifically for the ab approach
-    best_rkd_acc = run_relational_kd(s_net, t_net, **params)
+    best_rkd_acc = run_rkd_distillation(s_net, t_net, **params)
     return best_rkd_acc
 
 
 def test_pkd(s_net, t_net, params):
     # Arguments specifically for the ab approach
-    best_rkd_acc = run_pkd_distillation(s_net, t_net, **params)
-    return best_rkd_acc
+    best_pkd_acc = run_pkd_distillation(s_net, t_net, **params)
+    return best_pkd_acc
+
+
+def test_oh(s_net, t_net, params):
+    # Arguments specifically for the ab approach
+    best_oh_acc = run_oh_distillation(s_net, t_net, **params)
+    return best_oh_acc
 
 
 def run_benchmarks(mode, params):
@@ -147,6 +153,9 @@ def run_benchmarks(mode, params):
     elif mode.lower() == "pkd":
         best_pkd_acc = test_pkd(s_net, t_net, params)
         print(f"Best results pkd method {s_name}: {best_pkd_acc}")
+    elif mode.lower() == "oh":
+        best_oh_acc = test_oh(s_net, t_net, params)
+        print(f"Best results oh method {s_name}: {best_oh_acc}")
     else:
         raise RuntimeError("Training mode not supported!")
     print(f"Best results teacher {t_name}: {best_t_acc}")

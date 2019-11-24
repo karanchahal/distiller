@@ -404,7 +404,7 @@ class EmbeddingTrainer(Trainer):
         return loss
 
 
-def run_relational_kd(s_net, t_net, **params):
+def run_rkd_distillation(s_net, t_net, **params):
 
     params["normalize"] = True
     params["embedding"] = 128

@@ -15,7 +15,7 @@ import copy
 from trainer import load_checkpoint, KDTrainer
 
 
-def run_teacher_assistant(s_net, ta_net, t_net, **params):
+def run_takd_distillation(s_net, ta_net, t_net, **params):
 
     # Teaching Assistant training
     # Define loss and the optimizer

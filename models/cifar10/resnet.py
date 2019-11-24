@@ -103,13 +103,28 @@ class ResNet(nn.Module):
         out = self.linear(pool)
 
         if is_feat:
-            b1 = b1.view(b1.size(0), -1)
-            b2 = b2.view(b2.size(0), -1)
-            b3 = b3.view(b3.size(0), -1)
-            b4 = b4.view(b4.size(0), -1)
             return[b1, b2, b3, b4], pool, out
 
         return out
+
+    def get_bn_before_relu(self):
+        if isinstance(self.layer1[0], Bottleneck):
+            bn1 = self.layer1[-1].bn3
+            bn2 = self.layer2[-1].bn3
+            bn3 = self.layer3[-1].bn3
+            bn4 = self.layer4[-1].bn3
+        elif isinstance(self.layer1[0], BasicBlock):
+            bn1 = self.layer1[-1].bn2
+            bn2 = self.layer2[-1].bn2
+            bn3 = self.layer3[-1].bn2
+            bn4 = self.layer4[-1].bn2
+        else:
+            print('ResNet unknown block error !!!')
+
+        return [bn1, bn2, bn3, bn4]
+
+    def get_channel_num(cls):
+        return [64, 128, 256, 512]
 
 
 class ResNetSmall(nn.Module):
@@ -143,12 +158,26 @@ class ResNetSmall(nn.Module):
         out = self.linear(pool)
 
         if is_feat:
-            b1 = b1.view(b1.size(0), -1)
-            b2 = b2.view(b2.size(0), -1)
-            b3 = b3.view(b3.size(0), -1)
             return[b1, b2, b3], pool, out
 
         return out
+
+    def get_bn_before_relu(self):
+        if isinstance(self.layer1[0], Bottleneck):
+            bn1 = self.layer1[-1].bn3
+            bn2 = self.layer2[-1].bn3
+            bn3 = self.layer3[-1].bn3
+        elif isinstance(self.layer1[0], BasicBlock):
+            bn1 = self.layer1[-1].bn2
+            bn2 = self.layer2[-1].bn2
+            bn3 = self.layer3[-1].bn2
+        else:
+            print('ResNet unknown block error !!!')
+
+        return [bn1, bn2, bn3]
+
+    def get_channel_num(cls):
+        return [16, 32, 64]
 
 
 def resnet8(**kwargs):
@@ -180,7 +209,7 @@ def resnet152(**kwargs):
 
 
 def test():
-    net = ResNet18()
+    net = resnet18()
     y = net(torch.randn(1, 3, 32, 32))
     print(y.size())
 

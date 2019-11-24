@@ -39,6 +39,7 @@ class Trainer(object):
         self.loss_fun = nn.CrossEntropyLoss()
         self.train_loader = train_config["train_loader"]
         self.test_loader = train_config["test_loader"]
+        self.batch_size = self.train_loader.batch_size
         self.config = train_config
         # tqdm bar
         self.t_bar = None
