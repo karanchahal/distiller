@@ -11,8 +11,8 @@ class LinearEmbedding(nn.Module):
         self.normalize = normalize
 
     def forward(self, x, get_ha=False):
-        if base.feature_maps:
-            b1, b2, b3, pool = self.base(x, True)
+        if self.base.feature_maps:
+            b1, b2, b3, pool = self.base(x)
         else:
             pool = self.base(x)
 

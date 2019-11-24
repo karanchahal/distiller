@@ -15,7 +15,7 @@ def main(hparams):
     teacher_base = load_model_chk(teacher_base, hparams.path_to_teacher)
 
     # Train Teacher Embedding
-    trained_teacher_with_embed = RKD_Cifar(student=teacher_base, hparams=hparams)
+    trained_teacher_with_embed = RKD_Cifar(student_base=teacher_base, hparams=hparams)
 
     logger = TestTubeLogger(
        save_dir=hparams.save_dir,
@@ -45,7 +45,7 @@ def main(hparams):
 if __name__ == '__main__':
     parser = ArgumentParser(add_help=False)
     parser.add_argument('--epochs', default=100, type=int,  help='number of total epochs to run')
-    parser.add_argument('--gpus', type=int, default=1)
+    parser.add_argument('--gpus', type=int, default=0)
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--save-dir', type=str, default='./lightning_logs')
     parser.add_argument('--version', type=int, required=True, help= "version number for experiment")

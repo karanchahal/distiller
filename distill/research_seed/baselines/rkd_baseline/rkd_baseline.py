@@ -19,6 +19,7 @@ import pairs
 from enum import Enum
 from embedding import LinearEmbedding
 import argparse
+from metrics import recall, pdist
 
 class Train_Mode(Enum):
     TEACHER = 1
@@ -57,12 +58,11 @@ class RKD_Cifar(pl.LightningModule):
         self.mode = mode
 
         if self.mode == Train_Mode.STUDENT:
-            self.teacher = addEmbedding(teacher_base)
-            self.teacher.eval()
+            raise ValueError("No implemented yet !")
         elif self.mode == Train_Mode.TEACHER:
             for m in student_base.modules():
                 m.requires_grad = False
-            self.student = addEmbedding(student_base)
+            self.student = addEmbedding(student_base, hparams)
             self.student.train()
 
 
@@ -114,7 +114,7 @@ class RKD_Cifar(pl.LightningModule):
         if self.mode == Train_Mode.TEACHER:
             
             embedding = self.student(x)
-            loss = criterion(embedding, labels)
+            loss = self.criterion(embedding, y)
 
             loss_metrics = {
                 'train_loss' : loss.item(),
@@ -132,7 +132,7 @@ class RKD_Cifar(pl.LightningModule):
 
         if self.mode == Train_Mode.TEACHER:
             embedding = self.student(x)
-            val_loss = criterion(embedding, labels)
+            val_loss = self.criterion(embedding, y)
             self.embeddings_all.append(embedding.data)
             self.labels_all.append(y.data)
 
@@ -299,7 +299,9 @@ class RKD_Cifar(pl.LightningModule):
         parser.add_argument('--batch', default=64, type=int)
         parser.add_argument('--iter_per_epoch', default=100, type=int)
         parser.add_argument('--lr_decay_epochs', type=int, default=[40, 60], nargs='+')
+        parser.add_argument('--output-size', type=int, default=4096)
         parser.add_argument('--lr_decay_gamma', type=float, default=0.1)
+        parser.add_argument('--recall', default=[1], type=int, nargs='+')
         parser.add_argument('--save_dir', default=None)
         parser.add_argument('--load', default=None)
 
