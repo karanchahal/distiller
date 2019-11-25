@@ -1,15 +1,28 @@
 import argparse
-import copy
+import random
+import string
+from pathlib import Path
 import torch
 
 from data_loader import get_cifar
 from models.model_factory import create_cnn_model
 from distillers import *
 from trainer import load_checkpoint, BaseTrainer, KDTrainer
-from optimizer import get_optimizer, get_scheduler
 
 
 BATCH_SIZE = 128
+
+
+def generate_id():
+    sw_id = "".join(random.choice("".join([random.choice(
+        string.ascii_letters + string.digits)
+        for ch in range(4)])) for _ in range(4))
+    return sw_id
+
+
+TEST_ID = generate_id()
+# TESTFOLDER = Path("results/" + TEST_ID)
+TESTFOLDER = Path("results")
 
 
 def parse_arguments():
@@ -37,6 +50,9 @@ def parse_arguments():
     parser.add_argument("--mode", default=["KD"], dest="modes",
                         type=str, nargs='+',
                         help="What type of distillation to use")
+    parser.add_argument("--results-dir", default=TESTFOLDER,
+                        dest="results_dir", type=str,
+                        help="Where all results are collected")
     args = parser.parse_args()
     return args
 
@@ -46,49 +62,45 @@ def init_teacher(t_name, params):
     num_classes = params["num_classes"]
     # Teacher training
     t_net = create_cnn_model(t_name, num_classes, params["device"])
-    teacher_train_config = copy.deepcopy(params)
-    teacher_name = params["t_name"]
-    trial_id = params["trial_id"]
-    best_teacher = f"{teacher_name}_{trial_id}_best.pth.tar"
-    teacher_train_config["name"] = teacher_name
+    teacher_config = params.copy()
+    teacher_name = t_name + "_teacher"
+    teacher_config["test_name"] = teacher_name
 
     if params["t_checkpoint"]:
         print("---------- Loading Teacher -------")
         t_net = load_checkpoint(t_net, params["t_checkpoint"])
 
-    teacher_trainer = BaseTrainer(t_net, train_config=teacher_train_config)
+    teacher_trainer = BaseTrainer(t_net, config=teacher_config)
 
     if params["t_checkpoint"]:
         best_t_acc = teacher_trainer.validate()
     else:
         print("---------- Training Teacher -------")
         best_t_acc = teacher_trainer.train()
+        best_teacher = teacher_trainer.best_model_file
         t_net = load_checkpoint(t_net, best_teacher)
     return t_net, best_t_acc
 
 
-def init_student(s_net, params):
+def init_student(s_name, params):
     # Student Model
     num_classes = params["num_classes"]
-    s_name = params["s_name"]
     s_net = create_cnn_model(s_name, num_classes, params["device"])
     return s_net
 
 
 def test_nokd(s_net, params):
     print("---------- Training NOKD -------")
-    nokd_train_config = copy.deepcopy(params)
-    nokd_train_config["name"] = params["s_name"]
-    nokd_trainer = BaseTrainer(s_net, train_config=nokd_train_config)
+    nokd_config = params.copy()
+    nokd_trainer = BaseTrainer(s_net, config=nokd_config)
     best_nokd_acc = nokd_trainer.train()
     return best_nokd_acc
 
 
 def test_kd(s_net, t_net, params):
     print("---------- Training KD -------")
-    kd_train_config = copy.deepcopy(params)
-    kd_train_config["name"] = params["s_name"]
-    kd_trainer = KDTrainer(s_net, t_net=t_net, train_config=kd_train_config)
+    kd_config = params.copy()
+    kd_trainer = KDTrainer(s_net, t_net=t_net, config=kd_config)
     best_kd_acc = kd_trainer.train()
     return best_kd_acc
 
@@ -133,30 +145,30 @@ def test_fd(s_net, t_net, params):
     return best_fd_acc
 
 
-def run_benchmarks(modes, params):
-    t_name = params["t_name"]
-    s_name = params["s_name"]
-    t_net, best_t_acc = init_teacher(t_name, params)
-    s_net = init_student(t_name, params)
-
+def run_benchmarks(modes, params, s_name, t_name):
     results = {}
     for mode in modes:
-        if mode.lower() == "nokd":
-            results[mode] = test_nokd(s_net, params)
-        if mode.lower() == "kd":
-            results[mode] = test_kd(s_net, t_net, params)
-        elif mode.lower() == "takd":
-            results[mode] = test_ta(s_net, t_net, params)
-        elif mode.lower() == "ab":
-            results[mode] = test_ab(s_net, t_net, params)
-        elif mode.lower() == "rkd":
-            results[mode] = test_rkd(s_net, t_net, params)
-        elif mode.lower() == "pkd":
-            results[mode] = test_pkd(s_net, t_net, params)
-        elif mode.lower() == "oh":
-            results[mode] = test_oh(s_net, t_net, params)
-        elif mode.lower() == "fd":
-            results[mode] = test_fd(s_net, t_net, params)
+        mode = mode.lower()
+        params_t = params.copy()
+        t_net, best_t_acc = init_teacher(t_name, params)
+        s_net = init_student(s_name, params)
+        params_t["test_name"] = f"{s_name}/{mode}"
+        if mode == "nokd":
+            results[mode] = test_nokd(s_net, params_t)
+        elif mode == "kd":
+            results[mode] = test_kd(s_net, t_net, params_t)
+        elif mode == "takd":
+            results[mode] = test_ta(s_net, t_net, params_t)
+        elif mode == "ab":
+            results[mode] = test_ab(s_net, t_net, params_t)
+        elif mode == "rkd":
+            results[mode] = test_rkd(s_net, t_net, params_t)
+        elif mode == "pkd":
+            results[mode] = test_pkd(s_net, t_net, params_t)
+        elif mode == "oh":
+            results[mode] = test_oh(s_net, t_net, params_t)
+        elif mode == "fd":
+            results[mode] = test_fd(s_net, t_net, params_t)
         else:
             raise RuntimeError(f"Training mode {mode} not supported!")
 
@@ -189,22 +201,20 @@ def start_evaluation(args):
         "momentum": args.momentum,
         "weight_decay": args.weight_decay,
         "t_checkpoint": args.t_checkpoint,
+        "results_dir": args.results_dir,
         "device": device,
-        "s_name": args.s_name,
-        "t_name": args.t_name,
         "num_classes": num_classes,
         "train_loader": train_loader,
         "test_loader": test_loader,
+        "optim": "SGD",
+        "sched": "multisteplr",
         "trial_id": 1,
         # {"_type": "quniform", "_value": [0.05, 1.0, 0.05]},
-        "lambda_student": 0.4,
+        "lambda_student": 0.7,
         # {"_type": "choice", "_value": [1, 2, 5, 10, 15, 20]},
         "T_student": 20,
     }
-    # Retrieve preconfigured optimizers and schedulers for all runs
-    params["optim"] = get_optimizer("SGD", params)
-    params["sched"] = get_scheduler("multisteplr", params)
-    run_benchmarks(args.modes, params)
+    run_benchmarks(args.modes, params, args.s_name, args.t_name)
 
 
 if __name__ == "__main__":

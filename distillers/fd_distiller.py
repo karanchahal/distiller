@@ -13,7 +13,8 @@ def distillation_loss(source, target):
 def build_feature_connector(s_channel, t_channel):
     C = [
         nn.Conv2d(s_channel, t_channel, kernel_size=1, stride=1, padding=0,
-                  bias=False), nn.BatchNorm2d(t_channel)]
+                  bias=False), nn.BatchNorm2d(t_channel)
+    ]
 
     for m in C:
         if isinstance(m, nn.Conv2d):
@@ -42,6 +43,7 @@ def get_convs(feat_layers):
 def get_net_info(net):
     device = next(net.parameters()).device
     layers = list(net.children())
+    # just get the conv layers
     feat_layers = get_convs(layers[:-1])
     linear = layers[-1]
     channels = []
@@ -117,12 +119,11 @@ class FDTrainer(BaseTrainer):
 def run_fd_distillation(s_net, t_net, **params):
 
     # Student training
-    # Define loss and the optimizer
     print("---------- Training FD Student -------")
     student_name = params["s_name"]
     s_train_config = copy.deepcopy(params)
     s_train_config["name"] = student_name
-    s_net = Distiller(s_net, t_net).cuda()
+    s_net = Distiller(s_net, t_net).to(params["device"])
     s_trainer = FDTrainer(s_net, train_config=s_train_config)
     best_s_acc = s_trainer.train()
 

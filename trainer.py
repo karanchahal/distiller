@@ -1,16 +1,13 @@
+import json
+import os
 import torch
+import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
-import torch.nn.functional as F
+from optimizer import get_optimizer, get_scheduler
 
 
 def load_checkpoint(model, checkpoint_path):
-    """
-    Loads weights from checkpoint
-    :param model: a pytorch nn student
-    :param str checkpoint_path: address/path of a file
-    :return: pytorch nn student with weights loaded from checkpoint
-    """
     model_ckp = torch.load(checkpoint_path)
     model.load_state_dict(model_ckp["model_state_dict"])
     return model
@@ -26,23 +23,41 @@ def init_progress_bar(train_loader):
     return t
 
 
-class Trainer(object):
-    def __init__(self, net, train_config):
-        self.net = net
-        self.device = train_config["device"]
-        self.name = train_config["name"]
+def check_dir(directory):
+    # create the folder if it does not exit
+    if not directory == "" and not os.path.exists(directory):
+        print(f"Folder {directory} does not exist! Creating...")
+        os.makedirs(directory)
 
-        optim_cls, optim_args = train_config["optim"]
-        sched_cls, sched_args = train_config["sched"]
+
+class Trainer():
+    def __init__(self, net, config):
+        self.net = net
+        self.device = config["device"]
+        self.name = config["test_name"]
+
+        # Retrieve preconfigured optimizers and schedulers for all runs
+        optim_cls, optim_args = get_optimizer(config["optim"], config)
+        sched_cls, sched_args = get_scheduler(config["sched"], config)
         self.optimizer = optim_cls(net.parameters(), **optim_args)
         self.scheduler = sched_cls(self.optimizer, **sched_args)
         self.loss_fun = nn.CrossEntropyLoss()
-        self.train_loader = train_config["train_loader"]
-        self.test_loader = train_config["test_loader"]
+        self.train_loader = config["train_loader"]
+        self.test_loader = config["test_loader"]
         self.batch_size = self.train_loader.batch_size
-        self.config = train_config
+        self.config = config
         # tqdm bar
         self.t_bar = None
+        folder = config["results_dir"]
+        check_dir(folder)
+        self.best_model_file = folder.joinpath(f"{self.name}_best.pth.tar")
+        acc_file_name = folder.joinpath(f"{self.name}.csv")
+        self.acc_file = open(acc_file_name, "w+")
+        self.acc_file.write("Training Loss,Validation Loss\n")
+        conf_file_name = folder.joinpath(f"{self.name}_conf.json")
+        with open(conf_file_name, "w+") as conf:
+            json.dump(config, conf, indent=4, sort_keys=True,
+                      default=lambda o: "obj")
 
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
@@ -54,7 +69,8 @@ class Trainer(object):
         self.loss_fun = loss_fun
 
     def calculate_loss(self, data, target):
-        raise NotImplementedError("calculate_loss not implemented!")
+        raise NotImplementedError(
+            "calculate_loss should be implemented by subclass!")
 
     def train_single_epoch(self, t_bar):
         self.net.train()
@@ -66,13 +82,12 @@ class Trainer(object):
             loss = self.calculate_loss(data, target)
             total_loss += loss
             t_bar.update(len(data))
-            if batch_idx % 5 == 0:
-                loss_avg = total_loss / batch_idx
-                t_bar.set_postfix_str(f"Loss {loss_avg:.6f}")
+            loss_avg = total_loss / batch_idx
+            t_bar.set_postfix_str(f"Loss {loss_avg:.6f}")
+        return total_loss / len(self.train_loader.dataset)
 
     def train(self):
         epochs = self.config["epochs"]
-        trial_id = self.config["trial_id"]
 
         best_acc = 0
         t_bar = init_progress_bar(self.train_loader)
@@ -81,18 +96,19 @@ class Trainer(object):
             t_bar.reset()
             t_bar.set_description(f"Epoch {epoch}")
             # perform training
-            self.train_single_epoch(t_bar)
+            train_acc = self.train_single_epoch(t_bar)
             # validate the output and save if it is the best so far
             val_acc = self.validate()
             if val_acc > best_acc:
                 best_acc = val_acc
-                self.save(epoch, name=f"{self.name}_{trial_id}_best.pth.tar")
+                self.save(epoch, name=self.best_model_file)
             # update the scheduler
             if self.scheduler:
                 self.scheduler.step()
+            self.acc_file.write(f"{train_acc},{val_acc}\n")
         tqdm.clear(t_bar)
         t_bar.close()
-
+        self.acc_file.close()
         return best_acc
 
     def validate(self):
@@ -116,26 +132,15 @@ class Trainer(object):
                   f"({acc * 100.0:.3f}%)\n")
             return acc
 
-    def save(self, epoch, name=None):
-        trial_id = self.config["trial_id"]
-        if name is None:
-            torch.save({
-                "epoch": epoch,
-                "model_state_dict": self.net.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-            }, "{}_{}_epoch{}.pth.tar".format(self.name, trial_id, epoch))
-        else:
-            torch.save({
-                "model_state_dict": self.net.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "epoch": epoch,
-            }, name)
+    def save(self, epoch, name):
+        torch.save({
+            "model_state_dict": self.net.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "epoch": epoch,
+        }, name)
 
 
 class BaseTrainer(Trainer):
-
-    def __init__(self, net, train_config):
-        super(BaseTrainer, self).__init__(net, train_config)
 
     def calculate_loss(self, data, target):
         # Standard Learning Loss ( Classification Loss)
@@ -147,8 +152,8 @@ class BaseTrainer(Trainer):
 
 
 class KDTrainer(Trainer):
-    def __init__(self, s_net, t_net, train_config):
-        super(KDTrainer, self).__init__(s_net, train_config)
+    def __init__(self, s_net, t_net, config):
+        super(KDTrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net

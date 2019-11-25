@@ -132,4 +132,5 @@ dmypy.json
 teacher_assistant/data
 data
 lightning_logs
+results
 *.tar
