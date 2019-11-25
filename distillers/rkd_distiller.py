@@ -9,12 +9,11 @@
 #  year={2019}
 # }
 
-import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from trainer import load_checkpoint, Trainer
+from trainer import Trainer
 
 
 BIG_NUMBER = 1e12
@@ -305,8 +304,8 @@ class DistanceWeighted(_Sampler):
 
 
 class RKDTrainer(Trainer):
-    def __init__(self, s_net, t_net, train_config):
-        super(RKDTrainer, self).__init__(s_net, train_config)
+    def __init__(self, s_net, t_net, config):
+        super(RKDTrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
@@ -336,25 +335,25 @@ class RKDTrainer(Trainer):
     def calculate_loss(self, data, target):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        t_feats, t_pool, t_e = self.t_net(data, True)
-        s_feats, s_pool, s_e = self.s_net(data, True)
-        at_loss = 0
+        t_feats, t_pool, t_out = self.t_net(data, is_feat=True)
+        s_feats, s_pool, s_out = self.s_net(data, is_feat=True)
 
         # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(s_e, target)
+        loss = self.loss_fun(s_out, target)
 
         # Knowledge Distillation Loss
         teacher_outputs = self.t_net(data)
-        student_max = F.log_softmax(s_e / T, dim=1)
+        student_max = F.log_softmax(s_out / T, dim=1)
         teacher_max = F.softmax(teacher_outputs / T, dim=1)
         loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
 
+        at_loss = 0
         for idx, s_feat in enumerate(s_feats):
             at_loss += self.at_ratio * self.at_criterion(s_feat, t_feats[idx])
         dist_loss = self.dist_ratio * self.dist_criterion(s_pool, t_pool)
         angle_loss = self.angle_ratio * self.angle_criterion(s_pool, t_pool)
-        dark_loss = self.dark_ratio * self.dark_criterion(s_e, t_e)
+        dark_loss = self.dark_ratio * self.dark_criterion(s_out, t_out)
         loss += dist_loss + angle_loss + dark_loss
         loss.backward()
         self.optimizer.step()
@@ -367,7 +366,7 @@ def run_rkd_distillation(s_net, t_net, **params):
     print("---------- Training RKD Student -------")
     params = params.copy()
     s_trainer = RKDTrainer(s_net, t_net=t_net,
-                           train_config=params)
+                           config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc

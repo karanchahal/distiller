@@ -98,8 +98,8 @@ class Distiller(nn.Module):
 
 
 class OHTrainer(BaseTrainer):
-    def __init__(self, s_net, train_config):
-        super(OHTrainer, self).__init__(s_net, train_config)
+    def __init__(self, s_net, config):
+        super(OHTrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net.s_net
         self.d_net = self.net
@@ -121,11 +121,8 @@ def run_oh_distillation(s_net, t_net, **params):
     # Student training
     # Define loss and the optimizer
     print("---------- Training OKD Student -------")
-    student_name = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
-    s_net = Distiller(t_net, s_net).cuda()
-    s_trainer = OHTrainer(s_net, train_config=s_train_config)
+    s_net = Distiller(t_net, s_net).to(params["device"])
+    s_trainer = OHTrainer(s_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc

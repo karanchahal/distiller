@@ -10,37 +10,25 @@
 # }
 
 
-import copy
-
 from trainer import load_checkpoint, KDTrainer
 
 
 def run_takd_distillation(s_net, ta_net, t_net, **params):
 
     # Teaching Assistant training
-    # Define loss and the optimizer
-
     print("---------- Training TA -------")
-
-    ta_train_config = copy.deepcopy(params)
-    ta_name = params["ta_name"]
-    trial_id = params["trial_id"]
-    best_ta = f"{ta_name}_{trial_id}_best.pth.tar"
-    ta_train_config["name"] = ta_name
-    ta_trainer = KDTrainer(ta_net, t_net=t_net,
-                           train_config=ta_train_config)
+    ta_config = params.copy()
+    ta_name = ta_config["ta_name"]
+    ta_config["test_name"] = f"{ta_name}_ta_trainer"
+    ta_trainer = KDTrainer(ta_net, t_net=t_net, config=ta_config)
     best_ta_acc = ta_trainer.train()
+    best_ta = ta_trainer.best_model_file
     ta_net = load_checkpoint(ta_net, best_ta)
 
     # Student training
-    # Define loss and the optimizer
     print("---------- Training TA Student -------")
-    student_name = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
-    s_trainer = KDTrainer(s_net, t_net=ta_net,
-                          train_config=s_train_config)
+    s_trainer = KDTrainer(s_net, t_net=ta_net, config=params)
     best_s_acc = s_trainer.train()
 
-    print(f"Final results ta {ta_name}: {best_ta_acc}")
+    print(f"Best results teacher {ta_name}: {best_ta_acc}")
     return best_s_acc

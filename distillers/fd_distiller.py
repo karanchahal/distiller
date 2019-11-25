@@ -91,7 +91,7 @@ class Distiller(nn.Module):
         for idx, s_feat in enumerate(s_feats):
             s_feat = self.connectors[idx](s_feat)
             kd_loss = distillation_loss(s_feat, t_feats[idx])
-            loss_distill += kd_loss / 2 ** (len(t_feats) - idx - 1)
+            loss_distill += kd_loss
 
         s_out = self.s_net(x)
         if is_loss:
@@ -100,8 +100,8 @@ class Distiller(nn.Module):
 
 
 class FDTrainer(BaseTrainer):
-    def __init__(self, s_net, train_config):
-        super(FDTrainer, self).__init__(s_net, train_config)
+    def __init__(self, s_net, config):
+        super(FDTrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net.s_net
         self.d_net = self.net
@@ -120,11 +120,8 @@ def run_fd_distillation(s_net, t_net, **params):
 
     # Student training
     print("---------- Training FD Student -------")
-    student_name = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
     s_net = Distiller(s_net, t_net).to(params["device"])
-    s_trainer = FDTrainer(s_net, train_config=s_train_config)
+    s_trainer = FDTrainer(s_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc

@@ -105,8 +105,8 @@ class Active_Soft_WRN_norelu(nn.Module):
 
 
 class DistillTrainer(BaseTrainer):
-    def __init__(self, s_net, d_net, train_config):
-        super(DistillTrainer, self).__init__(s_net, train_config)
+    def __init__(self, s_net, d_net, config):
+        super(DistillTrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.d_net = d_net
@@ -144,19 +144,18 @@ def run_ab_distillation(s_net, t_net, **params):
 
     # Distillation (Initialization)
     print("---------- Initialize AB Student Distillation-------")
-    d_name = params["s_name"]
-    d_train_config = copy.deepcopy(params)
-    d_train_config["name"] = d_name
-    d_train_config["epochs"] = DISTILL_EPOCHS
-    d_trainer = DistillTrainer(s_net, d_net=d_net, train_config=d_train_config)
+    d_config = copy.deepcopy(params)
+    d_config["test_name"] = "ab_distillation"
+    d_config["epochs"] = DISTILL_EPOCHS
+    d_trainer = DistillTrainer(s_net, d_net=d_net, config=d_config)
     d_trainer.train()
     s_net = d_trainer.s_net
 
     # Student training
     print("---------- Training AB Student -------")
     sname = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = sname
-    s_trainer = KDTrainer(s_net, t_net=t_net, train_config=s_train_config)
+    s_config = copy.deepcopy(params)
+    s_config["name"] = sname
+    s_trainer = KDTrainer(s_net, t_net=t_net, config=s_config)
     best_s_acc = s_trainer.train()
     return best_s_acc

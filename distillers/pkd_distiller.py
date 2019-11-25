@@ -47,12 +47,14 @@ class PKDTrainer(Trainer):
 
     def calculate_loss(self, data, target):
         beta = 10
-        feature_output, pool_s = self.s_net(data, is_feat=True)
-        feature_output_t, pool_t = self.t_net(data, is_feat=True)
-        student_patience = torch.cat(feature_output, dim=1)
-        teacher_patience = torch.cat(feature_output_t, dim=1)
+        s_feats, s_pool, s_out = self.s_net(data, is_feat=True)
+        t_feats, t_pool, t_out = self.t_net(data, is_feat=True)
+        s_feats = [feat.view(feat.size(0), -1) for feat in s_feats]
+        t_feats = [feat.view(feat.size(0), -1) for feat in t_feats]
+        student_patience = torch.cat(s_feats, dim=1)
+        teacher_patience = torch.cat(t_feats, dim=1)
 
-        loss_KD = self.distill_loss(pool_s, pool_t, target)
+        loss_KD = self.distill_loss(s_out, t_out, target)
 
         pt_loss = beta * \
             self.patience_loss(teacher_patience, student_patience)
@@ -68,11 +70,7 @@ def run_pkd_distillation(s_net, t_net, **params):
     # Student training
     # Define loss and the optimizer
     print("---------- Training PKD Student -------")
-    student_name = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
-    s_trainer = PKDTrainer(s_net, t_net=t_net,
-                           train_config=s_train_config)
+    s_trainer = PKDTrainer(s_net, t_net=t_net, train_config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc
