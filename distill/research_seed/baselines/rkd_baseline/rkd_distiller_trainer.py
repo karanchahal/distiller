@@ -65,12 +65,7 @@ def findNumCorrect(embed, labels, K=[1]):
     correct_k = (correct_labels[:, :1].sum(dim=1) > 0).float().mean().item()
 
     return correct_k
-    # recall_k = []
 
-    # for k in K:
-    #     correct_k = (correct_labels[:, :k].sum(dim=1) > 0).float().mean().item()
-    #     recall_k.append(correct_k)
-    # return recall_k
 
 class RKD_Cifar(pl.LightningModule):
 
