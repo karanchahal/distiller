@@ -47,7 +47,7 @@ class _Triplet(nn.Module):
         self.size_average = size_average
 
     def forward(self, embeddings, labels):
-        anchor_idx, pos_idx, neg_idx = self.sampler()(embeddings, labels)
+        anchor_idx, pos_idx, neg_idx = self.sampler(embeddings, labels)
         anchor_embed = embeddings[anchor_idx]
         positive_embed = embeddings[pos_idx]
         negative_embed = embeddings[neg_idx]
@@ -304,16 +304,9 @@ class DistanceWeighted(_Sampler):
         return anchor_idx, pos_idx, neg_idx
 
 
-def othernorm(x):
-    other_mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, -1, 1, 1).cuda()
-    other_std = torch.Tensor([0.229, 0.224, 0.225]).view(1, -1, 1, 1).cuda()
-    x = (x - other_mean) / other_std
-    return x
-
-
-class TrainManager(Trainer):
+class RKDTrainer(Trainer):
     def __init__(self, s_net, t_net, train_config):
-        super(TrainManager, self).__init__(s_net, train_config)
+        super(RKDTrainer, self).__init__(s_net, train_config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
@@ -323,9 +316,9 @@ class TrainManager(Trainer):
 
         self.triplet_ratio = 0.0
         self.triplet_margin = 0.2
-        self.dist_ratio = 1.0
-        self.angle_ratio = 2.0
-        self.at_ratio = 0.0
+        self.dist_ratio = 25.0
+        self.angle_ratio = 50.0
+        self.at_ratio = 50
 
         self.dark_ratio = 0.0
         self.dark_alpha = 2.0
@@ -341,64 +334,28 @@ class TrainManager(Trainer):
         self.at_criterion = AttentionTransfer()
 
     def calculate_loss(self, data, target):
-        t_pool, t_e = self.t_net(othernorm(data), True)
-        pool, e = self.s_net(othernorm(data), True)
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
+        t_feats, t_pool, t_e = self.t_net(data, True)
+        s_feats, s_pool, s_e = self.s_net(data, True)
+        at_loss = 0
 
-        triplet_loss = self.triplet_ratio * self.triplet_criterion(e, target)
-        dist_loss = self.dist_ratio * self.dist_criterion(e, t_e)
-        angle_loss = self.angle_ratio * self.angle_criterion(e, t_e)
-        dark_loss = self.dark_ratio * self.dark_criterion(e, t_e)
-
-        loss = triplet_loss + dist_loss + angle_loss + dark_loss
-        loss.backward()
-        self.optimizer.step()
-        return loss
-
-
-class LinearEmbedding(nn.Module):
-    def __init__(self, base, output_size=512,
-                 embedding_size=128, normalize=True):
-        super(LinearEmbedding, self).__init__()
-        self.base = base
-        self.linear = nn.Linear(output_size, embedding_size)
-        self.normalize = normalize
-
-    def forward(self, x, get_ha=False):
-        if get_ha:
-            b1, b2, b3, b4, pool = self.base(x, get_ha)
-        else:
-            pool = self.base(x)
-
-        embedding = self.linear(pool)
-
-        if self.normalize:
-            embedding = F.normalize(embedding, p=2, dim=1)
-
-        if get_ha:
-            return b1, b2, b3, b4, pool, embedding
-
-        return embedding
-
-
-class EmbeddingTrainer(Trainer):
-
-    def __init__(self, net, train_config):
-        super(EmbeddingTrainer, self).__init__(net, train_config)
-        self.optimizer = torch.optim.Adam(net.parameters(),
-                                          lr=1e-5, weight_decay=1e-5)
-        self.loss_fun = L2Triplet(sampler=AllPairs, margin=0.2)
-        embedding_size = train_config["embedding"]
-        output_size = train_config["num_classes"]
-        normalize = train_config["normalize"]
-        self.net = LinearEmbedding(self.net, output_size, embedding_size,
-                                   normalize)
-        self.net = self.net.to(train_config["device"])
-
-    def calculate_loss(self, data, target):
         # Standard Learning Loss ( Classification Loss)
-        output = self.net(data)
-        loss = self.loss_fun(output, target)
-        self.optimizer.zero_grad()
+        loss = self.loss_fun(s_e, target)
+
+        # Knowledge Distillation Loss
+        teacher_outputs = self.t_net(data)
+        student_max = F.log_softmax(s_e / T, dim=1)
+        teacher_max = F.softmax(teacher_outputs / T, dim=1)
+        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
+
+        for idx, s_feat in enumerate(s_feats):
+            at_loss += self.at_ratio * self.at_criterion(s_feat, t_feats[idx])
+        dist_loss = self.dist_ratio * self.dist_criterion(s_pool, t_pool)
+        angle_loss = self.angle_ratio * self.angle_criterion(s_pool, t_pool)
+        dark_loss = self.dark_ratio * self.dark_criterion(s_e, t_e)
+        loss += dist_loss + angle_loss + dark_loss
         loss.backward()
         self.optimizer.step()
         return loss
@@ -406,28 +363,11 @@ class EmbeddingTrainer(Trainer):
 
 def run_rkd_distillation(s_net, t_net, **params):
 
-    params["normalize"] = True
-    params["embedding"] = 128
-
-    # Embedding training teacher
-    print("---------- Training RKD Teacher Embedding -------")
-    t_e_name = params["t_name"]
-    t_e_train_config = copy.deepcopy(params)
-    t_e_train_config["name"] = t_e_name + "_embed"
-
-    t_e_trainer = EmbeddingTrainer(t_net, t_e_train_config)
-    t_e_trainer.train()
-
-    # get embedded models
-    t_net = t_e_trainer.net
-
     # Student training
     print("---------- Training RKD Student -------")
-    student_name = params["s_name"]
-    s_train_config = copy.deepcopy(params)
-    s_train_config["name"] = student_name
-    s_trainer = TrainManager(s_net, t_net=t_net,
-                             train_config=s_train_config)
+    params = params.copy()
+    s_trainer = RKDTrainer(s_net, t_net=t_net,
+                           train_config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc
