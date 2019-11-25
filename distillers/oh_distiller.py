@@ -13,7 +13,7 @@ import math
 import torch
 import torch.nn as nn
 from scipy.stats import norm
-from trainer import load_checkpoint, BaseTrainer
+from trainer import BaseTrainer
 
 
 def distillation_loss(source, target, margin):
@@ -70,8 +70,14 @@ class Distiller(nn.Module):
             self.register_buffer('margin%d' % (
                 i + 1), margin.unsqueeze(1).unsqueeze(2).unsqueeze(0).detach())
 
-        self.t_net = t_net
         self.s_net = s_net
+        self.t_net = t_net
+        # freeze the layers of the teacher
+        for param in self.t_net.parameters():
+            param.requires_grad = False
+        # set the teacher net into evaluation mode
+        self.t_net.eval()
+        self.t_net.train(mode=False)
 
     def forward(self, x, is_loss=False):
 
@@ -95,11 +101,12 @@ class OHTrainer(BaseTrainer):
     def __init__(self, s_net, train_config):
         super(OHTrainer, self).__init__(s_net, train_config)
         # the student net is the base net
-        self.s_net = self.net
+        self.s_net = self.net.s_net
+        self.d_net = self.net
 
     def calculate_loss(self, data, target):
 
-        outputs, loss_distill = self.s_net(data, is_loss=True)
+        outputs, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(outputs, target)
 
         loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
