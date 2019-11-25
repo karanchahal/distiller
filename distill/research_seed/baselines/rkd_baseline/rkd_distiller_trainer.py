@@ -36,7 +36,6 @@ def load_model_chk(model, path):
     chkp = torch.load(path)
     new_state_dict = OrderedDict()
     for k, v in chkp['state_dict'].items():
-        #print(k)
         name = k[8:] # remove `model.`
         new_state_dict[name] = v
     model.load_state_dict(new_state_dict)
@@ -162,10 +161,10 @@ class RKD_Cifar(pl.LightningModule):
 
             loss_metrics = {
                 'train_loss' : loss.item(),
-                'triplet_loss': triplet_loss.item(),
-                'angle_loss' : angle_loss.item(),
-                'dark_loss' : dark_loss.item(),
-                'accuracy' : acc,
+                'train_triplet_loss': triplet_loss.item(),
+                'train_dist_loss': dist_loss.item(),
+                'train_angle_loss' : angle_loss.item(),
+                'train_accuracy' : acc,
             }
 
         return {
@@ -205,13 +204,14 @@ class RKD_Cifar(pl.LightningModule):
                 'val_loss' : loss,
                 'val_triplet_loss': triplet_loss,
                 'val_angle_loss' : angle_loss,
-                'val_dark_loss' : dark_loss,
+                'val_dist_loss' : dist_loss,
                 'accuracy': acc,
             }
 
     def validation_end(self, outputs):
         # OPTIONAL
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
+        avg_acc_loss = torch.stack([x['accuracy'] for x in outputs]).mean()
 
         if self.mode == Train_Mode.TEACHER:
             self.embeddings_all = torch.cat(self.embeddings_all).cpu()
@@ -225,11 +225,13 @@ class RKD_Cifar(pl.LightningModule):
         elif self.mode == Train_Mode.STUDENT:
             avg_triplet_loss = torch.stack([x['val_triplet_loss'] for x in outputs]).mean()
             avg_angle_loss = torch.stack([x['val_angle_loss'] for x in outputs]).mean()
-            avg_dark_loss = torch.stack([x['val_dark_loss'] for x in outputs]).mean()
+            avg_dist_loss = torch.stack([x['val_dist_loss'] for x in outputs]).mean()
             log_metrics = {
                     "val_triplet_loss" : avg_triplet_loss.item(),
                     "val_angle_loss": avg_angle_loss.item(),
-                    "val_dark_loss": avg_dark_loss.item(),
+                    "val_dist_loss": avg_dist_loss.item(),
+                    "val_accuracy": avg_acc_loss,
+                    "val_loss": avg_loss.item(),
             }
         
         self.embeddings_all, self.labels_all = [], []
