@@ -52,10 +52,10 @@ class Trainer():
         check_dir(folder)
         self.best_model_file = folder.joinpath(f"{self.name}_best.pth.tar")
         acc_file_name = folder.joinpath(f"{self.name}.csv")
-        self.acc_file = open(acc_file_name, "w+")
+        self.acc_file = acc_file_name.open("w+")
         self.acc_file.write("Training Loss,Validation Loss\n")
         conf_file_name = folder.joinpath(f"{self.name}_conf.json")
-        with open(conf_file_name, "w+") as conf:
+        with conf_file_name.open("w+") as conf:
             json.dump(config, conf, indent=4, sort_keys=True,
                       default=lambda o: "obj")
 

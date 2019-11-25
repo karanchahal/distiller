@@ -152,7 +152,8 @@ def run_benchmarks(modes, params, s_name, t_name):
         params_t = params.copy()
         t_net, best_t_acc = init_teacher(t_name, params)
         s_net = init_student(s_name, params)
-        params_t["test_name"] = f"{s_name}/{mode}"
+        params_t["test_name"] = s_name
+        params_t["results_dir"] = params_t["results_dir"].joinpath(mode)
         if mode == "nokd":
             results[mode] = test_nokd(s_net, params_t)
         elif mode == "kd":
