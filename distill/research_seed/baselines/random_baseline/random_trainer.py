@@ -3,7 +3,7 @@ This file runs the main training/val loop, etc... using Lightning Trainer
 """
 from pytorch_lightning import Trainer
 from argparse import ArgumentParser
-from research_seed.baselines.kd_baseline.random_baseline import Random_Cifar
+from research_seed.baselines.random_baseline.random_model import Random_Cifar
 from pytorch_lightning.logging import TestTubeLogger
 
 def main(hparams):

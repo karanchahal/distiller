@@ -29,10 +29,10 @@ class RandomCifarDataset(Dataset):
 
         return sample
 
-dataset = RandomCifarDataset()
-data_loader = DataLoader(dataset, batch_size=4,
-                        shuffle=True, num_workers=4)
+# dataset = RandomCifarDataset()
+# data_loader = DataLoader(dataset, batch_size=4,
+#                         shuffle=True, num_workers=4)
 
-for sample in data_loader:
-    print(sample.size())
+# for sample in data_loader:
+#     print(sample.size())
     
