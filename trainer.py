@@ -72,9 +72,8 @@ class Trainer():
 
             # Metric tracking boilerplate
             pred = y_hat.data.max(1, keepdim=True)[1]
-            correct = pred.eq(y.data.view_as(pred)).sum()
-            curr_acc = 100.0 * (correct / float(self.batch_size))
-            total_correct += correct
+            total_correct += pred.eq(y.data.view_as(pred)).sum()
+            curr_acc = 100.0 * (total_correct / float(len_train_set))
             t_bar.update(self.batch_size)
             t_bar.set_postfix_str(f"Accuracy {curr_acc:.3f}%")
         total_acc = float(total_correct / len_train_set)
