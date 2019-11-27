@@ -121,7 +121,7 @@ class DistillTrainer(BaseTrainer):
     def calculate_loss(self, data, target):
 
         batch_size = data.shape[0]
-        self.d_net(data)
+        output = self.d_net(data)
 
         # Alternative loss
         margin = 1.0
@@ -136,7 +136,7 @@ class DistillTrainer(BaseTrainer):
 
         loss.backward()
         self.optimizer.step()
-        return loss
+        return output, loss
 
 
 def run_ab_distillation(s_net, t_net, **params):

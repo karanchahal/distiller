@@ -60,17 +60,20 @@ class Trainer():
 
     def train_single_epoch(self, t_bar):
         self.net.train()
-        total_loss = 0
-        for batch_idx, (data, target) in enumerate(self.train_loader):
-            data = data.to(self.device)
-            target = target.to(self.device)
+        num_correct = 0
+        len_train_set = len(self.train_loader.dataset)
+        for batch_idx, (x, y) in enumerate(self.train_loader):
+            x = x.to(self.device)
+            y = y.to(self.device)
             self.optimizer.zero_grad()
-            loss = self.calculate_loss(data, target)
-            total_loss += loss
-            t_bar.update(len(data))
-            loss_avg = total_loss / batch_idx
-            t_bar.set_postfix_str(f"Loss {loss_avg:.6f}")
-        return total_loss / len(self.train_loader.dataset)
+            y_hat, loss = self.calculate_loss(x, y)
+            pred = y_hat.data.max(1, keepdim=True)[1]
+            num_correct += pred.eq(y.data.view_as(pred)).sum()
+            curr_acc = (num_correct / batch_idx)
+            t_bar.update(self.batch_size)
+            t_bar.set_postfix_str(f"Acc {curr_acc:.3f}%")
+        total_acc = float(num_correct / len_train_set)
+        return total_acc
 
     def train(self):
         epochs = self.config["epochs"]
@@ -134,7 +137,8 @@ class BaseTrainer(Trainer):
         loss = self.loss_fun(output, target)
         loss.backward()
         self.optimizer.step()
-        return loss
+        return output, loss
+
 
 class KDTrainer(Trainer):
     def __init__(self, s_net, t_net, config):
@@ -161,7 +165,7 @@ class KDTrainer(Trainer):
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         loss.backward()
         self.optimizer.step()
-        return loss
+        return output, loss
 
 
 class BlindTrainer(Trainer):
@@ -187,7 +191,7 @@ class BlindTrainer(Trainer):
         loss = lambda_ * T * T * loss_KD
         loss.backward()
         self.optimizer.step()
-        return loss
+        return output, loss
 
     def train_single_epoch(self, t_bar):
         self.net.train()

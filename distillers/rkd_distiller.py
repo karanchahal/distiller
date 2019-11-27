@@ -357,7 +357,7 @@ class RKDTrainer(Trainer):
         loss += dist_loss + angle_loss + dark_loss
         loss.backward()
         self.optimizer.step()
-        return loss
+        return s_out, loss
 
 
 def run_rkd_distillation(s_net, t_net, **params):

@@ -103,9 +103,9 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     sns.lineplot(data=df, palette="tab10", style="event")
     util.check_dir(plot_dir)
+    plot_dir = Path(plot_dir).joinpath(test_id)
     plt_name = f"{epochs}_epochs_{teacher_name}_to_{student_name}"
-    plt_name = Path(plot_dir).joinpath(test_id)
-    plt_name = Path(plt_name).joinpath(plt_name)
+    plt_name = Path(plot_dir).joinpath(plt_name)
     plt.savefig(f"{plt_name}.pdf", bbox_inches='tight', pad_inches=0.05)
     plt.savefig(f"{plt_name}.png", bbox_inches='tight', pad_inches=0.05)
     plt.gcf().clear()

@@ -106,13 +106,13 @@ class FDTrainer(BaseTrainer):
         self.d_net = self.net
 
     def calculate_loss(self, data, target):
-        outputs, loss_distill = self.d_net(data, is_loss=True)
-        loss_CE = self.loss_fun(outputs, target)
+        output, loss_distill = self.d_net(data, is_loss=True)
+        loss_CE = self.loss_fun(output, target)
         loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
 
         loss.backward()
         self.optimizer.step()
-        return loss
+        return output, loss
 
 
 def run_fd_distillation(s_net, t_net, **params):
