@@ -1,0 +1,1 @@
+pip3 install --user torch torchvision numpy pandas tqdm seaborn

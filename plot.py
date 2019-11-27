@@ -2,7 +2,6 @@ from __future__ import division  # For Python 2
 import json
 import argparse
 from pathlib import Path
-import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
