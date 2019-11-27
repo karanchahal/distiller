@@ -69,9 +69,9 @@ class Trainer():
             y_hat, loss = self.calculate_loss(x, y)
             pred = y_hat.data.max(1, keepdim=True)[1]
             num_correct += pred.eq(y.data.view_as(pred)).sum()
-            curr_acc = (num_correct / batch_idx)
+            curr_acc = num_correct / float(batch_idx)
             t_bar.update(self.batch_size)
-            t_bar.set_postfix_str(f"Acc {curr_acc:.3f}%")
+            t_bar.set_postfix_str(f"Accuracy {curr_acc:.3f}%")
         total_acc = float(num_correct / len_train_set)
         return total_acc
 
