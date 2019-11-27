@@ -198,7 +198,7 @@ class RKD_Cifar(pl.LightningModule):
 
             loss = triplet_loss + dist_loss + angle_loss + dark_loss
 
-            acc = findNumCorrect(s_e, y)
+            acc = torch.tensor(findNumCorrect(s_e, y))
 
             return {
                 'val_loss' : loss,
@@ -230,7 +230,7 @@ class RKD_Cifar(pl.LightningModule):
                     "val_triplet_loss" : avg_triplet_loss.item(),
                     "val_angle_loss": avg_angle_loss.item(),
                     "val_dist_loss": avg_dist_loss.item(),
-                    "val_accuracy": avg_acc_loss,
+                    "val_accuracy": avg_acc_loss.item(),
                     "val_loss": avg_loss.item(),
             }
         
