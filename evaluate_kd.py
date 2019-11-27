@@ -1,28 +1,17 @@
 import argparse
-import random
-import string
 from pathlib import Path
-import torch
 
+import torch
 from data_loader import get_cifar
 from models.model_factory import create_cnn_model
 from distillers import *
 from trainer import load_checkpoint, BaseTrainer, KDTrainer
-
+from plot import plot_results
+import util
 
 BATCH_SIZE = 128
-
-
-def generate_id():
-    sw_id = "".join(random.choice("".join([random.choice(
-        string.ascii_letters + string.digits)
-        for ch in range(4)])) for _ in range(4))
-    return sw_id
-
-
-TEST_ID = generate_id()
-# TESTFOLDER = Path("results/" + TEST_ID)
-TESTFOLDER = Path("results")
+TESTFOLDER = "results"
+USE_ID = False
 
 
 def parse_arguments():
@@ -63,8 +52,7 @@ def init_teacher(t_name, params):
     # Teacher training
     t_net = create_cnn_model(t_name, num_classes, params["device"])
     teacher_config = params.copy()
-    teacher_name = t_name + "_teacher"
-    teacher_config["test_name"] = teacher_name
+    teacher_config["test_name"] = params["teacher_name"]
 
     if params["t_checkpoint"]:
         print("---------- Loading Teacher -------")
@@ -154,6 +142,7 @@ def run_benchmarks(modes, params, s_name, t_name):
         s_net = init_student(s_name, params)
         params_t["test_name"] = s_name
         params_t["results_dir"] = params_t["results_dir"].joinpath(mode)
+        util.check_dir(params_t["results_dir"])
         if mode == "nokd":
             results[mode] = test_nokd(s_net, params_t)
         elif mode == "kd":
@@ -180,7 +169,7 @@ def run_benchmarks(modes, params, s_name, t_name):
 
 def setup_torch():
     use_cuda = torch.cuda.is_available()
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = "cuda" if use_cuda else "cpu"
     if use_cuda:
         torch.backends.cudnn.benchmark = True
     # Maximum determinism
@@ -195,27 +184,39 @@ def start_evaluation(args):
     train_loader, test_loader = get_cifar(num_classes,
                                           batch_size=args.batch_size)
 
+    if USE_ID:
+        test_id = util.generate_id()
+    else:
+        test_id = ""
+    results_dir = Path(args.results_dir).joinpath(test_id)
+    results_dir = Path(results_dir).joinpath(args.dataset)
+    util.check_dir(results_dir)
+    teacher_name = args.t_name + "_teacher"
+
     # Parsing arguments and prepare settings for training
     params = {
         "epochs": args.epochs,
+        "modes": args.modes,
         "learning_rate": args.learning_rate,
         "momentum": args.momentum,
         "weight_decay": args.weight_decay,
         "t_checkpoint": args.t_checkpoint,
-        "results_dir": args.results_dir,
+        "results_dir": results_dir,
         "device": device,
         "num_classes": num_classes,
         "train_loader": train_loader,
         "test_loader": test_loader,
         "optim": "SGD",
         "sched": "multisteplr",
-        "trial_id": 1,
-        # {"_type": "quniform", "_value": [0.05, 1.0, 0.05]},
+        "teacher_name": teacher_name,
+        "student_name": args.s_name,
         "lambda_student": 0.7,
-        # {"_type": "choice", "_value": [1, 2, 5, 10, 15, 20]},
         "T_student": 20,
     }
+    test_conf_name = results_dir.joinpath("test_config.json")
+    util.dump_json_config(test_conf_name, params)
     run_benchmarks(args.modes, params, args.s_name, args.t_name)
+    plot_results(results_dir, test_id=test_id)
 
 
 if __name__ == "__main__":

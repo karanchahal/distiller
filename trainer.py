@@ -1,5 +1,3 @@
-import json
-import os
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -23,13 +21,6 @@ def init_progress_bar(train_loader):
     return t
 
 
-def check_dir(directory):
-    # create the folder if it does not exit
-    if not directory == "" and not os.path.exists(directory):
-        print(f"Folder {directory} does not exist! Creating...")
-        os.makedirs(directory)
-
-
 class Trainer():
     def __init__(self, net, config):
         self.net = net
@@ -49,15 +40,10 @@ class Trainer():
         # tqdm bar
         self.t_bar = None
         folder = config["results_dir"]
-        check_dir(folder)
         self.best_model_file = folder.joinpath(f"{self.name}_best.pth.tar")
         acc_file_name = folder.joinpath(f"{self.name}.csv")
         self.acc_file = acc_file_name.open("w+")
         self.acc_file.write("Training Loss,Validation Loss\n")
-        conf_file_name = folder.joinpath(f"{self.name}_conf.json")
-        with conf_file_name.open("w+") as conf:
-            json.dump(config, conf, indent=4, sort_keys=True,
-                      default=lambda o: "obj")
 
     def set_optimizer(self, optimizer):
         self.optimizer = optimizer
@@ -150,7 +136,6 @@ class BaseTrainer(Trainer):
         self.optimizer.step()
         return loss
 
-
 class KDTrainer(Trainer):
     def __init__(self, s_net, t_net, config):
         super(KDTrainer, self).__init__(s_net, config)
@@ -165,7 +150,6 @@ class KDTrainer(Trainer):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
         output = self.s_net(data)
-
         # Standard Learning Loss ( Classification Loss)
         loss = self.loss_fun(output, target)
 
@@ -178,3 +162,43 @@ class KDTrainer(Trainer):
         loss.backward()
         self.optimizer.step()
         return loss
+
+
+class BlindTrainer(Trainer):
+    def __init__(self, s_net, t_net, config):
+        super(BlindTrainer, self).__init__(s_net, config)
+        # the student net is the base net
+        self.s_net = self.net
+        self.t_net = t_net
+        # set the teacher net into evaluation mode
+        self.t_net.eval()
+        self.t_net.train(mode=False)
+
+    def calculate_loss(self, data):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
+        output = self.s_net(data)
+
+        # Knowledge Distillation Loss
+        teacher_outputs = self.t_net(data)
+        student_max = F.log_softmax(output / T, dim=1)
+        teacher_max = F.softmax(teacher_outputs / T, dim=1)
+        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
+        loss = lambda_ * T * T * loss_KD
+        loss.backward()
+        self.optimizer.step()
+        return loss
+
+    def train_single_epoch(self, t_bar):
+        self.net.train()
+        total_loss = 0
+        iters = int(len(self.train_loader.dataset) / self.batch_size)
+        for batch_idx in range(iters):
+            data = torch.randn((self.batch_size, 3, 32, 32)).to(self.device)
+            self.optimizer.zero_grad()
+            loss = self.calculate_loss(data)
+            total_loss += loss
+            t_bar.update(self.batch_size)
+            loss_avg = total_loss / batch_idx
+            t_bar.set_postfix_str(f"Loss {loss_avg:.6f}")
+        return total_loss / len(self.train_loader.dataset)

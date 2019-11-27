@@ -1,4 +1,3 @@
-import copy
 import math
 import torch
 import torch.nn as nn
@@ -47,7 +46,7 @@ def get_net_info(net):
     feat_layers = get_convs(layers[:-1])
     linear = layers[-1]
     channels = []
-    input_size = [[3, 28, 28]]
+    input_size = [[3, 32, 32]]
     x = [torch.rand(2, *in_size) for in_size in input_size]
     x = torch.Tensor(*x).to(device)
     for layer in feat_layers:
