@@ -17,7 +17,6 @@ class RandomCifarDataset(Dataset):
         self.channels = channels
         self.length = length
 
-
     def __len__(self):
         return self.length
 
@@ -35,4 +34,20 @@ class RandomCifarDataset(Dataset):
 
 # for sample in data_loader:
 #     print(sample.size())
-    
+# import torchvision
+# import torchvision.transforms as transforms
+
+
+# transform_test = transforms.Compose([
+#                 transforms.Resize((32, 32)),
+#                 transforms.ToTensor()
+#             ])
+
+# dataset = torchvision.datasets.STL10('./data', split='unlabeled', folds=None, transform=transform_test, target_transform=None, download=True)
+# # dataset = RandomCifarDataset()
+# data_loader = DataLoader(dataset, batch_size=4,
+#                         shuffle=True, num_workers=4)
+
+# for sample, target in data_loader:
+#     print(sample.size())
+#     print(target)

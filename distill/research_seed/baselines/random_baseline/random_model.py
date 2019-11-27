@@ -55,6 +55,8 @@ class Random_Cifar(pl.LightningModule):
         self.val_step = 0
         self.val_num_correct = 0
 
+        self.mse_loss = nn.MSELoss()
+
 
     def loss_fn_kd(self, outputs, teacher_outputs):
         """
@@ -68,9 +70,10 @@ class Random_Cifar(pl.LightningModule):
         
         alpha = self.hparams.alpha
         T = self.hparams.temperature
-        loss = nn.KLDivLoss()(F.log_softmax(outputs/T, dim=1),
-                                F.softmax(teacher_outputs/T, dim=1)) * (T * T)
-        
+
+        # mse loss between output of feature map of student and teacher. 
+        loss = self.mse_loss(outputs, teacher_outputs)
+
         return loss
 
     def forward(self, x, mode):
