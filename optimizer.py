@@ -19,6 +19,7 @@ def get_optimizer(optim_str, params):
     elif optim_str.lower() == "adabound":
         optim_args["weight_decay"] = params["weight_decay"]
         optim_args["amsbound"] = True
+        optim_args["final_lr"] = 0.0001
         return AdaBound, optim_args
     else:
         print("Requested optimizer not supported!")
@@ -29,14 +30,22 @@ def get_scheduler(sched_str, params):
     sched_args = {}
     if sched_str.lower() == "steplr":
         sched_args["step_size"] = 50
+        sched_args["gamma"] = 0.1
         return optim.lr_scheduler.StepLR, sched_args
     elif sched_str.lower() == "multisteplr":
         decay_steps = [
-            int(0.4 * params["epochs"]),
+            int(0.25 * params["epochs"]),
+            int(0.5 * params["epochs"]),
             int(0.75 * params["epochs"]),
         ]
         sched_args["milestones"] = decay_steps
+        sched_args["gamma"] = 0.1
         return optim.lr_scheduler.MultiStepLR, sched_args
+    elif sched_str.lower() == "reducelronplateau":
+        sched_args["patience"] = 3
+        sched_args["gamma"] = 0.1
+        sched_args["verbose"] = True
+        return optim.lr_scheduler.ReduceLROnPlateau, sched_args
     else:
         print("Requested optimizer not supported!")
         exit(1)

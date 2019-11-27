@@ -60,19 +60,24 @@ class Trainer():
 
     def train_single_epoch(self, t_bar):
         self.net.train()
-        num_correct = 0
+        total_correct = 0
         len_train_set = len(self.train_loader.dataset)
         for batch_idx, (x, y) in enumerate(self.train_loader):
             x = x.to(self.device)
             y = y.to(self.device)
             self.optimizer.zero_grad()
+
+            # this function is implemented by the subclass
             y_hat, loss = self.calculate_loss(x, y)
+
+            # Metric tracking boilerplate
             pred = y_hat.data.max(1, keepdim=True)[1]
-            num_correct += pred.eq(y.data.view_as(pred)).sum()
-            curr_acc = num_correct / float(batch_idx)
+            correct = pred.eq(y.data.view_as(pred)).sum()
+            curr_acc = 100.0 * (correct / float(self.batch_size))
+            total_correct += correct
             t_bar.update(self.batch_size)
             t_bar.set_postfix_str(f"Accuracy {curr_acc:.3f}%")
-        total_acc = float(num_correct / len_train_set)
+        total_acc = float(total_correct / len_train_set)
         return total_acc
 
     def train(self):
@@ -146,9 +151,6 @@ class KDTrainer(Trainer):
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
     def calculate_loss(self, data, target):
         lambda_ = self.config["lambda_student"]
@@ -174,9 +176,6 @@ class BlindTrainer(Trainer):
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
     def calculate_loss(self, data):
         lambda_ = self.config["lambda_student"]

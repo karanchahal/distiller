@@ -309,9 +309,6 @@ class RKDTrainer(Trainer):
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
         self.triplet_ratio = 0.0
         self.triplet_margin = 0.2
@@ -349,8 +346,11 @@ class RKDTrainer(Trainer):
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
 
         at_loss = 0
-        for idx, s_feat in enumerate(s_feats):
-            at_loss += self.at_ratio * self.at_criterion(s_feat, t_feats[idx])
+        # technically we should use every layer expect the first here
+        # not sure if this is correct
+        for idx, s_feat in enumerate(s_feats, start=1):
+            at_loss += self.at_ratio * \
+                self.at_criterion(s_feat, t_feats[idx])
         dist_loss = self.dist_ratio * self.dist_criterion(s_pool, t_pool)
         angle_loss = self.angle_ratio * self.angle_criterion(s_pool, t_pool)
         dark_loss = self.dark_ratio * self.dark_criterion(s_out, t_out)

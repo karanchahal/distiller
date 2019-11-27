@@ -1,40 +1,48 @@
-import math
 import torch
 import torch.nn as nn
 from trainer import BaseTrainer
 
 
-def distillation_loss(source, target):
-    loss = (source - target)**2 * (target > 0)
-    return torch.abs(loss).sum()
+class SwishBase(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, i):
+        result = i * torch.sigmoid(i)
+        ctx.save_for_backward(i)
+        return result
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        i = ctx.saved_variables[0]
+        sigmoid_i = torch.sigmoid(i)
+        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
+
+
+class Swish(nn.Module):
+    def forward(self, input_tensor):
+        return SwishBase.apply(input_tensor)
 
 
 def build_feature_connector(s_channel, t_channel):
-    C = [
-        nn.Conv2d(s_channel, t_channel, kernel_size=1, stride=1, padding=0,
-                  bias=False), nn.BatchNorm2d(t_channel)
+    connector = [
+        nn.Conv2d(s_channel, t_channel, kernel_size=1,
+                  stride=1, padding=0, bias=False),
+        nn.BatchNorm2d(t_channel),
+        Swish(),
     ]
-
-    for m in C:
-        if isinstance(m, nn.Conv2d):
-            n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
-            m.weight.data.normal_(0, math.sqrt(2. / n))
-        elif isinstance(m, nn.BatchNorm2d):
-            m.weight.data.fill_(1)
-            m.bias.data.zero_()
-
-    return nn.Sequential(*C)
+    return nn.Sequential(*connector)
 
 
 def build_connectors(s_channels, t_channels):
-    channel_tuples = zip(s_channels, t_channels)
+    channel_tuples = []
+    for idx, s_channel in enumerate(s_channels):
+        channel_tuples.append((s_channel, t_channels[idx]))
     return [build_feature_connector(s, t) for s, t in channel_tuples]
 
 
-def get_convs(feat_layers):
+def get_layer_types(feat_layers, types):
     conv_layers = []
     for layer in feat_layers:
-        if isinstance(layer, nn.Conv2d):
+        if isinstance(layer, *types):
             conv_layers.append(layer)
     return conv_layers
 
@@ -43,7 +51,8 @@ def get_net_info(net):
     device = next(net.parameters()).device
     layers = list(net.children())
     # just get the conv layers
-    feat_layers = get_convs(layers[:-1])
+    types = [nn.Conv2d]
+    feat_layers = get_layer_types(layers, types)
     linear = layers[-1]
     channels = []
     input_size = [[3, 32, 32]]
@@ -75,22 +84,16 @@ class Distiller(nn.Module):
 
         self.s_net = s_net
         self.t_net = t_net
-        # freeze the layers of the teacher
-        for param in self.t_net.parameters():
-            param.requires_grad = False
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
     def forward(self, x, is_loss=False):
         t_feats = get_features(self.t_feat_layers, x)
         s_feats = get_features(self.s_feat_layers, x)
-
+        len_s_feats = len(s_feats)
         loss_distill = 0
         for idx, s_feat in enumerate(s_feats):
             s_feat = self.connectors[idx](s_feat)
-            kd_loss = distillation_loss(s_feat, t_feats[idx])
-            loss_distill += kd_loss
+            kd_loss = nn.MSELoss()(s_feat, t_feats[idx])
+            loss_distill += kd_loss / len_s_feats
 
         s_out = self.s_net(x)
         if is_loss:
@@ -108,7 +111,7 @@ class FDTrainer(BaseTrainer):
     def calculate_loss(self, data, target):
         output, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
+        loss = loss_CE + loss_distill
 
         loss.backward()
         self.optimizer.step()

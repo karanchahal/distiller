@@ -67,6 +67,12 @@ def init_teacher(t_name, params):
         best_t_acc = teacher_trainer.train()
         best_teacher = teacher_trainer.best_model_file
         t_net = load_checkpoint(t_net, best_teacher)
+
+    # freeze the layers of the teacher
+    for param in t_net.parameters():
+        param.requires_grad = False
+    # set the teacher net into evaluation mode
+    t_net.eval()
     return t_net, best_t_acc
 
 

@@ -72,12 +72,6 @@ class Distiller(nn.Module):
 
         self.s_net = s_net
         self.t_net = t_net
-        # freeze the layers of the teacher
-        for param in self.t_net.parameters():
-            param.requires_grad = False
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
     def forward(self, x, is_loss=False):
 

@@ -113,6 +113,9 @@ class DistillTrainer(BaseTrainer):
         d_net.train()
         d_net.s_net.train()
         d_net.t_net.train()
+        # unfreeze the layers of the teacher
+        for param in d_net.t_net.parameters():
+            param.requires_grad = True
         self.optimizer = optim.SGD([{'params': s_net.parameters()},
                                     {'params': d_net.Connectors.parameters()}],
                                    lr=0.1, nesterov=True, momentum=0.9,
@@ -149,7 +152,10 @@ def run_ab_distillation(s_net, t_net, **params):
     d_config["epochs"] = DISTILL_EPOCHS
     d_trainer = DistillTrainer(s_net, d_net=d_net, config=d_config)
     d_trainer.train()
-    s_net = d_trainer.s_net
+    s_net = d_trainer.d_net.s_net
+    t_net = d_trainer.d_net.t_net
+    # set the teacher net into evaluation mode again
+    t_net.eval()
 
     # Student training
     print("---------- Training AB Student -------")

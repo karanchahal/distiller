@@ -20,9 +20,6 @@ class PKDTrainer(Trainer):
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
-        # set the teacher net into evaluation mode
-        self.t_net.eval()
-        self.t_net.train(mode=False)
 
     def patience_loss(self, teacher_patience, student_patience,
                       normalized_patience=False):
