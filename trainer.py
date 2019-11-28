@@ -62,7 +62,8 @@ class Trainer():
 
     def train_single_epoch(self, t_bar):
         self.net.train()
-        total_correct = 0
+        total_correct = 0.0
+        total_loss = 0.0
         len_train_set = len(self.train_loader.dataset)
         for batch_idx, (x, y) in enumerate(self.train_loader):
             x = x.to(self.device)
@@ -75,9 +76,11 @@ class Trainer():
             # Metric tracking boilerplate
             pred = y_hat.data.max(1, keepdim=True)[1]
             total_correct += pred.eq(y.data.view_as(pred)).sum()
+            total_loss += loss
             curr_acc = 100.0 * (total_correct / float(len_train_set))
+            curr_loss = (total_loss / float(batch_idx))
             t_bar.update(self.batch_size)
-            t_bar.set_postfix_str(f"Accuracy {curr_acc:.3f}%")
+            t_bar.set_postfix_str(f"Acc {curr_acc:.3f}% Loss {curr_loss:.3f}")
         total_acc = float(total_correct / len_train_set)
         return total_acc
 

@@ -230,7 +230,7 @@ def start_evaluation(args):
         "sched": "multisteplr",
         "teacher_name": teacher_name,
         "student_name": args.s_name,
-        "lambda_student": 0.7,
+        "lambda_student": 0.5,
         "T_student": 20,
     }
     test_conf_name = results_dir.joinpath("test_config.json")

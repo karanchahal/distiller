@@ -3,36 +3,17 @@ import torch.nn as nn
 from trainer import BaseTrainer
 
 
-class SwishBase(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, i):
-        result = i * torch.sigmoid(i)
-        ctx.save_for_backward(i)
-        return result
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        i = ctx.saved_variables[0]
-        sigmoid_i = torch.sigmoid(i)
-        return grad_output * (sigmoid_i * (1 + i * (1 - sigmoid_i)))
-
-
-class Swish(nn.Module):
-    def forward(self, input_tensor):
-        return SwishBase.apply(input_tensor)
-
-
 def build_feature_connector(s_channel, t_channel):
     connector = [
         nn.Conv2d(s_channel, t_channel, kernel_size=1,
                   stride=1, padding=0, bias=False),
         nn.BatchNorm2d(t_channel),
-        Swish(),
     ]
     return nn.Sequential(*connector)
 
 
 def build_connectors(s_channels, t_channels):
+    # channel_tuples = zip(t_channels, s_channels)
     channel_tuples = []
     for idx, s_channel in enumerate(s_channels):
         channel_tuples.append((s_channel, t_channels[idx]))
@@ -42,13 +23,15 @@ def build_connectors(s_channels, t_channels):
 def get_layer_types(feat_layers, types):
     conv_layers = []
     for layer in feat_layers:
-        if isinstance(layer, *types):
+        if not isinstance(layer, nn.Linear):
             conv_layers.append(layer)
     return conv_layers
 
 
 def get_net_info(net):
     device = next(net.parameters()).device
+    if isinstance(net, nn.DataParallel):
+        net = net.module
     layers = list(net.children())
     # just get the conv layers
     types = [nn.Conv2d]
@@ -88,13 +71,12 @@ class Distiller(nn.Module):
     def forward(self, x, is_loss=False):
         t_feats = get_features(self.t_feat_layers, x)
         s_feats = get_features(self.s_feat_layers, x)
-        len_s_feats = len(s_feats)
-        loss_distill = 0
+        loss_distill = 0.0
         for idx, s_feat in enumerate(s_feats):
+            t_feat = t_feats[idx]
             s_feat = self.connectors[idx](s_feat)
-            kd_loss = nn.MSELoss()(s_feat, t_feats[idx])
-            loss_distill += kd_loss / len_s_feats
-
+            loss = nn.MSELoss()(s_feat, t_feat)
+            loss_distill += loss
         s_out = self.s_net(x)
         if is_loss:
             return s_out, loss_distill
@@ -109,9 +91,11 @@ class FDTrainer(BaseTrainer):
         self.d_net = self.net
 
     def calculate_loss(self, data, target):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
         output, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = loss_CE + loss_distill
+        loss = lambda_ * T * loss_distill + loss_CE
 
         loss.backward()
         self.optimizer.step()
