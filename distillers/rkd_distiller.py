@@ -347,8 +347,8 @@ class RKDTrainer(Trainer):
 
         at_loss = 0
         # technically we should use every layer expect the first here
-        # not sure if this is correct
-        for idx, s_feat in enumerate(s_feats, start=1):
+        # not sure if this will change the outcome significantly
+        for idx, s_feat in enumerate(s_feats, start=0):
             at_loss += self.at_ratio * \
                 self.at_criterion(s_feat, t_feats[idx])
         dist_loss = self.dist_ratio * self.dist_criterion(s_pool, t_pool)
