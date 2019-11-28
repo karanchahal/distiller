@@ -5,7 +5,7 @@ import torch
 from data_loader import get_cifar
 from models.model_factory import create_cnn_model
 from distillers import *
-from trainer import load_checkpoint, BaseTrainer, KDTrainer
+from trainer import BaseTrainer, KDTrainer
 from plot import plot_results
 import util
 
@@ -46,34 +46,37 @@ def parse_arguments():
     return args
 
 
-def init_teacher(t_name, params):
+def setup_teacher(t_name, params):
     # Teacher Model
     num_classes = params["num_classes"]
-    # Teacher training
     t_net = create_cnn_model(t_name, num_classes, params["device"])
     teacher_config = params.copy()
     teacher_config["test_name"] = params["teacher_name"]
 
     if params["t_checkpoint"]:
+        # Just validate the performance
         print("---------- Loading Teacher -------")
-        t_net = load_checkpoint(t_net, params["t_checkpoint"])
-
-    teacher_trainer = BaseTrainer(t_net, config=teacher_config)
-
-    if params["t_checkpoint"]:
-        best_t_acc = teacher_trainer.validate()
+        best_teacher = params["t_checkpoint"]
     else:
+        # Teacher training
         print("---------- Training Teacher -------")
-        best_t_acc = teacher_trainer.train()
+        teacher_trainer = BaseTrainer(t_net, config=teacher_config)
+        teacher_trainer.train()
         best_teacher = teacher_trainer.best_model_file
-        t_net = load_checkpoint(t_net, best_teacher)
 
-    # freeze the layers of the teacher
-    for param in t_net.parameters():
-        param.requires_grad = False
-    # set the teacher net into evaluation mode
-    t_net.eval()
-    return t_net, best_t_acc
+    # reload and get the best model
+    t_net = util.load_checkpoint(t_net, best_teacher)
+    teacher_trainer = BaseTrainer(t_net, config=teacher_config)
+    best_t_acc = teacher_trainer.validate()
+
+    # also save this information in a csv file
+    name = params["teacher_name"] + "_val"
+    acc_file_name = params["results_dir"].joinpath(f"{name}.csv")
+    with acc_file_name.open("w+") as acc_file:
+        acc_file.write("Training Loss,Validation Loss\n")
+        for _ in range(params["epochs"]):
+            acc_file.write(f"0.0,{best_t_acc}\n")
+    return t_net, best_teacher, best_t_acc
 
 
 def init_student(s_name, params):
@@ -141,10 +144,21 @@ def test_fd(s_net, t_net, params):
 
 def run_benchmarks(modes, params, s_name, t_name):
     results = {}
+
+    t_net, best_teacher, best_t_acc = setup_teacher(t_name, params)
+
     for mode in modes:
         mode = mode.lower()
         params_t = params.copy()
-        t_net, best_t_acc = init_teacher(t_name, params)
+
+        # reset the teacher
+        t_net = util.load_checkpoint(t_net, best_teacher, params["device"])
+        # freeze the layers of the teacher
+        for param in t_net.parameters():
+            param.requires_grad = False
+        # set the teacher net into evaluation mode
+        t_net.eval()
+
         s_net = init_student(s_name, params)
         params_t["test_name"] = s_name
         params_t["results_dir"] = params_t["results_dir"].joinpath(mode)

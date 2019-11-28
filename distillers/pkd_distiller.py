@@ -7,11 +7,10 @@
 # year={2019}
 # }
 
-import copy
-from trainer import load_checkpoint, Trainer
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
+from trainer import Trainer
 
 
 class PKDTrainer(Trainer):

@@ -10,7 +10,8 @@
 # }
 
 
-from trainer import load_checkpoint, KDTrainer
+from trainer import KDTrainer
+import util
 
 
 def run_takd_distillation(s_net, ta_net, t_net, **params):
@@ -23,7 +24,7 @@ def run_takd_distillation(s_net, ta_net, t_net, **params):
     ta_trainer = KDTrainer(ta_net, t_net=t_net, config=ta_config)
     best_ta_acc = ta_trainer.train()
     best_ta = ta_trainer.best_model_file
-    ta_net = load_checkpoint(ta_net, best_ta)
+    ta_net = util.load_checkpoint(ta_net, best_ta)
 
     # Student training
     print("---------- Training TA Student -------")

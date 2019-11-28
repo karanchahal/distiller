@@ -2,7 +2,7 @@ import random
 import string
 import json
 import os
-
+import torch
 
 def generate_id():
     sw_id = "".join(random.choice("".join([random.choice(
@@ -22,3 +22,10 @@ def check_dir(directory):
     if not directory == "" and not os.path.exists(directory):
         print(f"Folder {directory} does not exist! Creating...")
         os.makedirs(directory)
+
+
+def load_checkpoint(model, checkpoint_path, device="cpu"):
+    device = torch.device(device)
+    model_ckp = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(model_ckp["model_state_dict"])
+    return model

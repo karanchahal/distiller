@@ -97,7 +97,7 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
         mode_path = data_dir.joinpath(mode)
         csv_path = mode_path.joinpath(f"{student_name}.csv")
         dfs[mode] = read_csv(csv_path)
-    teacher_path = data_dir.joinpath(f"{teacher_name}.csv")
+    teacher_path = data_dir.joinpath(f"{teacher_name}_val.csv")
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     sns.lineplot(data=df, palette="tab10", style="event")

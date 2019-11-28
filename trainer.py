@@ -1,14 +1,10 @@
+import sys
 import torch
 import torch.nn.functional as F
 from torch import nn
 from tqdm import tqdm
+
 from optimizer import get_optimizer, get_scheduler
-
-
-def load_checkpoint(model, checkpoint_path):
-    model_ckp = torch.load(checkpoint_path)
-    model.load_state_dict(model_ckp["model_state_dict"])
-    return model
 
 
 def init_progress_bar(train_loader):
@@ -17,7 +13,13 @@ def init_progress_bar(train_loader):
     # bar_format += "|{bar}|"
     bar_format += " {n_fmt}/{total_fmt} [{elapsed} < {remaining}]"
     bar_format += "{postfix}"
-    t = tqdm(total=len(train_loader) * batch_size, bar_format=bar_format)
+    # if stderr has no tty disable the progress bar
+    disable = not sys.stderr.isatty()
+    t = tqdm(total=len(train_loader) * batch_size,
+             bar_format=bar_format, disable=disable)
+    if disable:
+        # a trick to allow execution in environments where stderr is redirected
+        t._time = lambda: 0.0
     return t
 
 
@@ -41,7 +43,7 @@ class Trainer():
         self.t_bar = None
         folder = config["results_dir"]
         self.best_model_file = folder.joinpath(f"{self.name}_best.pth.tar")
-        acc_file_name = folder.joinpath(f"{self.name}.csv")
+        acc_file_name = folder.joinpath(f"{self.name}_train.csv")
         self.acc_file = acc_file_name.open("w+")
         self.acc_file.write("Training Loss,Validation Loss\n")
 
@@ -106,6 +108,7 @@ class Trainer():
 
     def validate(self):
         self.net.eval()
+        acc = 0.0
         with torch.no_grad():
             correct = 0
             acc = 0
@@ -122,8 +125,8 @@ class Trainer():
             acc = float(correct) / len(self.test_loader.dataset)
             print(f"\nValidation set: Average loss: {loss:.4f}, "
                   f"Accuracy: {correct}/{len(self.test_loader.dataset)} "
-                  f"({acc * 100.0:.3f}%)\n")
-            return acc
+                  f"({acc * 100.0:.3f}%)")
+        return acc
 
     def save(self, epoch, name):
         torch.save({
