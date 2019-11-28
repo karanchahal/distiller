@@ -1,4 +1,5 @@
 import models
+import torch
 model_dict = {
     "WRN10_4": models.wide.WRN10_4,  # params: 1198810
     "WRN16_1": models.wide.WRN16_1,  # params: 175066
@@ -43,6 +44,10 @@ def create_cnn_model(name, num_classes, device):
     model = model_cls(num_classes=num_classes)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"{name} total parameters: {total_params}")
+    # always use dataparallel for now
+    model = torch.nn.DataParallel(model)
+    device_count = torch.cuda.device_count()
+    print(f"Using {device_count} GPU(s).")
     # copy to cuda if activated
     model = model.to(device)
     return model
