@@ -45,7 +45,7 @@ def create_cnn_model(name, num_classes, device):
     total_params = sum(p.numel() for p in model.parameters())
     print(f"{name} total parameters: {total_params}")
     # always use dataparallel for now
-    # model = torch.nn.DataParallel(model)
+    model = torch.nn.DataParallel(model)
     device_count = torch.cuda.device_count()
     print(f"Using {device_count} GPU(s).")
     # copy to cuda if activated

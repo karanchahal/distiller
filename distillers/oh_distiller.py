@@ -57,13 +57,21 @@ class Distiller(nn.Module):
     def __init__(self, t_net, s_net):
         super(Distiller, self).__init__()
 
-        t_channels = t_net.get_channel_num()
-        s_channels = s_net.get_channel_num()
+        if isinstance(t_net, nn.DataParallel):
+            t_channels = t_net.module.get_channel_num()
+            teacher_bns = t_net.module.get_bn_before_relu()
+        else:
+            teacher_bns = t_net.get_bn_before_relu()
+            t_channels = t_net.get_channel_num()
+
+        if isinstance(s_net, nn.DataParallel):
+            s_channels = s_net.module.get_channel_num()
+        else:
+            s_channels = s_net.get_channel_num()
 
         self.Connectors = nn.ModuleList(
             [build_feature_connector(t, s) for t, s in zip(t_channels, s_channels)])
 
-        teacher_bns = t_net.get_bn_before_relu()
         margins = [get_margin_from_BN(bn) for bn in teacher_bns]
         for i, margin in enumerate(margins):
             self.register_buffer('margin%d' % (
