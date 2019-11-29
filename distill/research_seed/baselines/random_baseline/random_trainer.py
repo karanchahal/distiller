@@ -5,10 +5,18 @@ from pytorch_lightning import Trainer
 from argparse import ArgumentParser
 from research_seed.baselines.random_baseline.random_model import Random_Cifar
 from pytorch_lightning.logging import TestTubeLogger
+from research_seed.baselines.model.model_factory import create_cnn_model, is_resnet
 
 def main(hparams):
     # init module
-    model = Random_Cifar(hparams)
+
+    # Student
+    student = create_cnn_model(hparams.student_model, dataset=hparams.dataset)
+
+    # Teacher
+    teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset)
+
+    model = Random_Cifar(student, teacher, hparams)
     logger = TestTubeLogger(
        save_dir=hparams.save_dir,
        version=hparams.version # An existing version with a saved checkpoint

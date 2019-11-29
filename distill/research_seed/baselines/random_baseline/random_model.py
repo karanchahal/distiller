@@ -9,12 +9,13 @@ import torchvision
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 from argparse import ArgumentParser
-from research_seed.baselines.model.model_factory import create_cnn_model, is_resnet
 import torch.optim as optim
 import pytorch_lightning as pl
 import numpy as np
 from collections import OrderedDict
 from research_seed.baselines.random_baseline.dataset import RandomCifarDataset
+import torchvision
+import torchvision.transforms as transforms
 
 def str2bool(v):
 	if v.lower() in ('yes', 'true', 't', 'y', '1'):
@@ -33,21 +34,21 @@ def load_model_chk(model, path):
 
 class Random_Cifar(pl.LightningModule):
 
-    def __init__(self, hparams):
+    def __init__(self, student, teacher, hparams):
         super(Random_Cifar, self).__init__()
         # not the best model...
         self.hparams = hparams
 
-        self.student = create_cnn_model(hparams.student_model, dataset=hparams.dataset)
-        self.teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset)
-        
+        self.student = student
+        self.teacher = teacher
+
         # Loading from checkpoint
         self.teacher = load_model_chk(self.teacher, hparams.path_to_teacher)
 
         self.teacher.eval()
         self.student.train()
 
-        self.criterion = nn.CrossEntropyLoss()
+        # self.criterion = nn.CrossEntropyLoss()
 
         self.train_step = 0
         self.train_num_correct = 0
@@ -78,15 +79,15 @@ class Random_Cifar(pl.LightningModule):
 
     def forward(self, x, mode):
         if mode == 'student':
-            return self.student(x)
+            return self.student(x, True)
         elif mode == 'teacher':
-            return self.teacher(x)
+            return self.teacher(x, True)
         else:
             raise ValueError("mode should be teacher or student")
 
     def training_step(self, batch, batch_idx):
 
-        x = batch
+        x, y = batch
 
         y_teacher = self.forward(x, 'teacher')
         y_student = self.forward(x, 'student')
@@ -106,13 +107,17 @@ class Random_Cifar(pl.LightningModule):
         x, y = batch
 
 
-        y_hat = self.forward(x, 'student')
-        val_loss = self.criterion(y_hat, y)
+        # y_hat = self.forward(x, 'student')
+        # val_loss = self.criterion(y_hat, y)
 
-        pred = y_hat.data.max(1, keepdim=True)[1]
+        # pred = y_hat.data.max(1, keepdim=True)[1]
 
-        self.val_step += x.size(0)
-        self.val_num_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
+        # self.val_step += x.size(0)
+        # self.val_num_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
+        y_teacher = self.forward(x, 'teacher')
+        y_student = self.forward(x, 'student')
+
+        val_loss = self.loss_fn_kd(y_student, y_teacher)
 
         return {
             'val_loss': val_loss
@@ -124,7 +129,7 @@ class Random_Cifar(pl.LightningModule):
         
         log_metrics = {
             'val_avg_loss': avg_loss.item(),
-            'val_accuracy': float(self.val_num_correct*100/self.val_step)
+            # 'val_accuracy': float(self.val_num_correct*100/self.val_step)
         }
 
         self.scheduler.step(np.around(avg_loss.item(),2))
@@ -157,7 +162,14 @@ class Random_Cifar(pl.LightningModule):
     @pl.data_loader
     def train_dataloader(self):
 
-        trainset = RandomCifarDataset(length=50000)
+        transform_test = transforms.Compose([
+                        transforms.Resize((32, 32)),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                    ])
+
+        trainset = torchvision.datasets.STL10('./data', split='train+unlabeled', 
+        folds=None, transform=transform_test, target_transform=None, download=True)
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
@@ -169,16 +181,15 @@ class Random_Cifar(pl.LightningModule):
     @pl.data_loader
     def val_dataloader(self):
         
-        if self.hparams.dataset == 'cifar10' or self.hparams.dataset == 'cifar100':
-            transform_test = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            ])
-        else:
-            raise ValueError('Dataset not supported !')
+        transform_test = transforms.Compose([
+                        transforms.Resize((32, 32)),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                    ])
 
-        valset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
-												download=True, transform=transform_test)
+        valset = torchvision.datasets.STL10('./data', split='test', 
+        folds=None, transform=transform_test, target_transform=None, download=True)
+
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(valset)
         else:
@@ -189,16 +200,15 @@ class Random_Cifar(pl.LightningModule):
     @pl.data_loader
     def test_dataloader(self):
         
-        if self.hparams.dataset == 'cifar10' or self.hparams.dataset == 'cifar100':
-            transform_test = transforms.Compose([
-                transforms.ToTensor(),
-                transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            ])
-        else:
-            raise ValueError('Dataset not supported !')
+        transform_test = transforms.Compose([
+                        transforms.Resize((32, 32)),
+                        transforms.ToTensor(),
+                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+                    ])
 
-        testset = torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
-												download=True, transform=transform_test)
+        testset = torchvision.datasets.STL10('./data', split='test', 
+        folds=None, transform=transform_test, target_transform=None, download=True)
+
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
         else:

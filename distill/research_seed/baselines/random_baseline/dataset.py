@@ -32,21 +32,22 @@ class RandomCifarDataset(Dataset):
 # data_loader = DataLoader(dataset, batch_size=4,
 #                         shuffle=True, num_workers=4)
 
-# for sample in data_loader:
-#     print(sample.size())
+# # for sample in data_loader:
+# #     print(sample.size())
 # import torchvision
 # import torchvision.transforms as transforms
 
 
 # transform_test = transforms.Compose([
 #                 transforms.Resize((32, 32)),
-#                 transforms.ToTensor()
+#                 transforms.ToTensor(),
+#                 transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
 #             ])
 
 # dataset = torchvision.datasets.STL10('./data', split='unlabeled', folds=None, transform=transform_test, target_transform=None, download=True)
 # # dataset = RandomCifarDataset()
 # data_loader = DataLoader(dataset, batch_size=4,
-#                         shuffle=True, num_workers=4)
+#                 shuffle=True, num_workers=4)
 
 # for sample, target in data_loader:
 #     print(sample.size())
