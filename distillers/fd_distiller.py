@@ -4,10 +4,17 @@ from trainer import BaseTrainer
 
 
 def build_feature_connector(s_channel, t_channel):
+    c_in = s_channel[0]
+    h_in = s_channel[1]
+    w_in = s_channel[2]
+    c_out = t_channel[0]
+    h_out = t_channel[1]
+    w_out = t_channel[2]
+    conv = nn.Conv2d(c_in, c_out, kernel_size=1,
+                     stride=1, padding=0, bias=False)
     connector = [
-        nn.Conv2d(s_channel, t_channel, kernel_size=1,
-                  stride=1, padding=0, bias=False),
-        nn.BatchNorm2d(t_channel),
+        conv,
+        nn.BatchNorm2d(c_out),
     ]
     return nn.Sequential(*connector)
 
@@ -43,7 +50,7 @@ def get_net_info(net):
     x = torch.Tensor(*x).to(device)
     for layer in feat_layers:
         x = layer(x)
-        channels.append(x.shape[1])
+        channels.append(x.shape[1:])
     return feat_layers, linear, channels
 
 
@@ -95,7 +102,7 @@ class FDTrainer(BaseTrainer):
         T = self.config["T_student"]
         output, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = lambda_ * T * loss_distill + loss_CE
+        loss = lambda_ * loss_distill + loss_CE * (1 - lambda_)
 
         loss.backward()
         self.optimizer.step()

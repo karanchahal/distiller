@@ -94,6 +94,7 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     student_name = config["student_name"]
     dfs = {}
     for mode in modes:
+        mode = mode.lower()
         mode_path = data_dir.joinpath(mode)
         csv_path = mode_path.joinpath(f"{student_name}.csv")
         dfs[mode] = read_csv(csv_path)

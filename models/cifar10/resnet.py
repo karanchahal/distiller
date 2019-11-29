@@ -35,7 +35,7 @@ class BasicBlock(nn.Module):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
-        out = F.relu(out)
+        # out = F.relu(out)
         return out
 
 
@@ -66,7 +66,7 @@ class Bottleneck(nn.Module):
         out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
         out += self.shortcut(x)
-        out = F.relu(out)
+        # out = F.relu(out)
         return out
 
 
@@ -92,12 +92,20 @@ class ResNet(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, is_feat=False):
+    def forward(self, x, is_feat=False, use_relu=True):
         out = F.relu(self.bn1(self.conv1(x)))
         b1 = self.layer1(out)
+        if use_relu:
+            b1 = F.relu(b1)
         b2 = self.layer2(b1)
+        if use_relu:
+            b2 = F.relu(b2)
         b3 = self.layer3(b2)
+        if use_relu:
+            b3 = F.relu(b3)
         b4 = self.layer4(b3)
+        if use_relu:
+            b4 = F.relu(b4)
         pool = F.avg_pool2d(b4, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
@@ -148,11 +156,17 @@ class ResNetSmall(nn.Module):
             self.in_planes = planes * block.expansion
         return nn.Sequential(*layers)
 
-    def forward(self, x, is_feat=False):
+    def forward(self, x, is_feat=False, use_relu=True):
         out = F.relu(self.bn1(self.conv1(x)))
         b1 = self.layer1(out)
+        if use_relu:
+            b1 = F.relu(b1)
         b2 = self.layer2(b1)
+        if use_relu:
+            b2 = F.relu(b2)
         b3 = self.layer3(b2)
+        if use_relu:
+            b3 = F.relu(b3)
         pool = F.avg_pool2d(b3, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
