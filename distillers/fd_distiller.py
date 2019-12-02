@@ -63,6 +63,11 @@ def get_features(feat_layers, x):
     return feats
 
 
+def distillation_loss(source, target, margin):
+    loss = ((source - target)**2 * (target > 0).float())
+    return torch.abs(loss).sum()
+
+
 class Distiller(nn.Module):
     def __init__(self, s_net, t_net):
         super(Distiller, self).__init__()
@@ -82,11 +87,13 @@ class Distiller(nn.Module):
         for idx, s_feat in enumerate(s_feats):
             t_feat = t_feats[idx]
             s_feat = self.connectors[idx](s_feat)
-            loss = nn.MSELoss()(s_feat, t_feat)
+            loss = nn.KLDivLoss()(s_feat, t_feat)
             loss_distill += loss
-        s_out = self.s_net(x)
+        x = nn.functional.avg_pool2d(s_feats[-1], 4)
+        x = x.view(x.size(0), -1)
+        s_out = self.s_linear(x)
         if is_loss:
-            return s_out, loss_distill
+            return s_out, loss_distill / float(len(s_feats))
         return s_out
 
 
@@ -102,7 +109,7 @@ class FDTrainer(BaseTrainer):
         T = self.config["T_student"]
         output, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = lambda_ * loss_distill + loss_CE * (1 - lambda_)
+        loss = lambda_ * loss_distill + loss_CE
 
         loss.backward()
         self.optimizer.step()

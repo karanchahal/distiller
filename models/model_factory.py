@@ -26,6 +26,7 @@ model_dict = {
     "resnet8": models.cifar10.resnet8,  # params: 89322
     "resnet10": models.cifar10.resnet10,  # params: 4903242
     "resnet18": models.cifar10.resnet18,  # params: 11173962
+    "resnet20": models.cifar10.resnet20,  # params: 11173962
     "resnet34": models.cifar10.resnet34,  # params: 21282122
     "resnet50": models.cifar10.resnet50,  # params: 23520842
     "resnet101": models.cifar10.resnet101,  # params: 42512970
