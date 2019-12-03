@@ -303,6 +303,45 @@ class Random_Cifar(pl.LightningModule):
             torchvision.datasets.STL10('./data', split='train+unlabeled', 
             folds=None, transform=data_grayscale, target_transform=None, download=True),
 
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_transforms, download=True),
+            
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_jitter_brightness, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_jitter_saturation, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_jitter_contrast, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_jitter_hue, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_rotate, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_hvflip, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_hflip, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_vflip, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_shear, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+            transform=data_translate, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_center, download=True),
+
+            torchvision.datasets.CIFAR10('./data', train=True, 
+             transform=data_grayscale,  download=True),
+
             ]
 
         if self.hparams.gpus > 1:
@@ -341,15 +380,21 @@ class Random_Cifar(pl.LightningModule):
                         transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
                     ])
 
-        testset = torchvision.datasets.STL10('./data', split='test', 
-        folds=None, transform=transform_test, target_transform=None, download=True)
+        concat_dataset = torch.utils.data.ConcatDataset([
+            torchvision.datasets.STL10('./data', split='test', 
+                folds=None, transform=transform_test, target_transform=None, download=True),
+
+            torchvision.datasets.CIFAR10(root=self.hparams.dataset_dir, train=False,
+                download=True, transform=transform_test),
+        ])
+
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(testset)
         else:
             dist_sampler = None
 
-        return DataLoader(testset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
+        return DataLoader(concat_dataset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
 
 
     @staticmethod
