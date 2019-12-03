@@ -32,6 +32,113 @@ def load_model_chk(model, path):
     model.load_state_dict(new_state_dict)
     return model
 
+
+
+data_transforms = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and jitter image brightness
+data_jitter_brightness = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.ColorJitter(brightness=5),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and jitter image saturation
+data_jitter_saturation = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.ColorJitter(saturation=5),
+    #transforms.ColorJitter(saturation=-5),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and jitter image contrast
+data_jitter_contrast = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.ColorJitter(contrast=5),
+    #transforms.ColorJitter(contrast=-5),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and jitter image hues
+data_jitter_hue = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.ColorJitter(hue=0.4),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and rotate image
+data_rotate = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomRotation(15),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and flip image horizontally and vertically
+data_hvflip = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomHorizontalFlip(1),
+    transforms.RandomVerticalFlip(1),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and flip image horizontally
+data_hflip = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomHorizontalFlip(1),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and flip image vertically
+data_vflip = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomVerticalFlip(1),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and shear image
+data_shear = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomAffine(degrees = 15,shear=2),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and translate image
+data_translate = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.RandomAffine(degrees = 15,translate=(0.1,0.1)),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and crop image 
+data_center = transforms.Compose([
+	transforms.Resize((36, 36)),
+    transforms.CenterCrop(32),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
+# Resize, normalize and convert image to grayscale
+data_grayscale = transforms.Compose([
+	transforms.Resize((32, 32)),
+    transforms.Grayscale(num_output_channels=3),
+    transforms.ToTensor(),
+    transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
+])
+
 class Random_Cifar(pl.LightningModule):
 
     def __init__(self, student, teacher, hparams):
@@ -106,14 +213,6 @@ class Random_Cifar(pl.LightningModule):
         self.student.eval()
         x, y = batch
 
-
-        # y_hat = self.forward(x, 'student')
-        # val_loss = self.criterion(y_hat, y)
-
-        # pred = y_hat.data.max(1, keepdim=True)[1]
-
-        # self.val_step += x.size(0)
-        # self.val_num_correct += pred.eq(y.data.view_as(pred)).cpu().sum()
         y_teacher = self.forward(x, 'teacher')
         y_student = self.forward(x, 'student')
 
@@ -162,21 +261,57 @@ class Random_Cifar(pl.LightningModule):
     @pl.data_loader
     def train_dataloader(self):
 
-        transform_test = transforms.Compose([
-                        transforms.Resize((32, 32)),
-                        transforms.ToTensor(),
-                        transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-                    ])
 
-        trainset = torchvision.datasets.STL10('./data', split='train+unlabeled', 
-        folds=None, transform=transform_test, target_transform=None, download=True)
+        concat_dataset = torch.utils.data.ConcatDataset(
+            [
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_transforms, target_transform=None, download=True),
+            
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_jitter_brightness, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_jitter_saturation, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_jitter_contrast, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_jitter_hue, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_rotate, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_hvflip, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_hflip, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_vflip, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_shear, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_translate, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_center, target_transform=None, download=True),
+
+            torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            folds=None, transform=data_grayscale, target_transform=None, download=True),
+
+            ]
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
         else:
             dist_sampler = None
 
-        return DataLoader(trainset, batch_size=self.hparams.batch_size, num_workers=self.hparams.num_workers, sampler=dist_sampler)
+        return DataLoader(concat_dataset, batch_size=self.hparams.batch_size,
+         shuffle=True, num_workers=self.hparams.num_workers, pin_memory=use_gpu, sampler=dist_sampler)
 
     @pl.data_loader
     def val_dataloader(self):
