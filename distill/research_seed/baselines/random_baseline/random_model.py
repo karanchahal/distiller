@@ -276,32 +276,32 @@ class Random_Cifar(pl.LightningModule):
             torchvision.datasets.STL10('./data', split='train+unlabeled', 
             folds=None, transform=data_jitter_contrast, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_jitter_hue, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_jitter_hue, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_rotate, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_rotate, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_hvflip, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_hvflip, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_hflip, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_hflip, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_vflip, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_vflip, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_shear, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_shear, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_translate, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_translate, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_center, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_center, target_transform=None, download=True),
 
-            torchvision.datasets.STL10('./data', split='train+unlabeled', 
-            folds=None, transform=data_grayscale, target_transform=None, download=True),
+            # torchvision.datasets.STL10('./data', split='train+unlabeled', 
+            # folds=None, transform=data_grayscale, target_transform=None, download=True),
 
             torchvision.datasets.CIFAR10('./data', train=True, 
              transform=data_transforms, download=True),
@@ -315,32 +315,32 @@ class Random_Cifar(pl.LightningModule):
             torchvision.datasets.CIFAR10('./data', train=True, 
             transform=data_jitter_contrast, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-            transform=data_jitter_hue, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            # transform=data_jitter_hue, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-            transform=data_rotate, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            # transform=data_rotate, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-             transform=data_hvflip, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            #  transform=data_hvflip, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-             transform=data_hflip, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            #  transform=data_hflip, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-             transform=data_vflip, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            #  transform=data_vflip, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-            transform=data_shear, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            # transform=data_shear, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-            transform=data_translate, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            # transform=data_translate, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-             transform=data_center, download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            #  transform=data_center, download=True),
 
-            torchvision.datasets.CIFAR10('./data', train=True, 
-             transform=data_grayscale,  download=True),
+            # torchvision.datasets.CIFAR10('./data', train=True, 
+            #  transform=data_grayscale,  download=True),
 
             ])
 
