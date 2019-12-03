@@ -10,8 +10,16 @@ def build_feature_connector(s_channel, t_channel):
     c_out = t_channel[0]
     h_out = t_channel[1]
     w_out = t_channel[2]
-    conv = nn.Conv2d(c_in, c_out, kernel_size=1,
-                     stride=1, padding=0, bias=False)
+
+    if h_in < h_out or w_in < w_out:
+        stride = int(h_out / (h_in - 1))
+        kernel = 1
+        conv = nn.ConvTranspose2d(c_in, c_out, kernel_size=kernel,
+                                  stride=stride, padding=0, bias=False)
+    else:
+        stride = int(h_in / h_out)
+        conv = nn.Conv2d(c_in, c_out, kernel_size=1,
+                         stride=stride, padding=0, bias=False)
     connector = [
         conv,
         nn.BatchNorm2d(c_out),
@@ -22,8 +30,12 @@ def build_feature_connector(s_channel, t_channel):
 def build_connectors(s_channels, t_channels):
     # channel_tuples = zip(t_channels, s_channels)
     channel_tuples = []
-    for idx, s_channel in enumerate(s_channels):
-        channel_tuples.append((s_channel, t_channels[idx]))
+    len_s_channels = len(s_channels)
+    for idx, t_channel in enumerate(t_channels):
+        s_idx = idx
+        if idx > len_s_channels - 1:
+            s_idx = len_s_channels - 1
+        channel_tuples.append((s_channels[s_idx], t_channel))
     return [build_feature_connector(s, t) for s, t in channel_tuples]
 
 
@@ -84,9 +96,13 @@ class Distiller(nn.Module):
         t_feats = get_features(self.t_feat_layers, x)
         s_feats = get_features(self.s_feat_layers, x)
         loss_distill = 0.0
-        for idx, s_feat in enumerate(s_feats):
-            t_feat = t_feats[idx]
-            s_feat = self.connectors[idx](s_feat)
+        for idx, t_feat in enumerate(t_feats):
+            s_idx = idx
+            if s_idx > len(s_feats) - 1:
+                s_idx = len(s_feats) - 1
+            s_feat = s_feats[s_idx]
+            connector = self.connectors[idx]
+            s_feat = connector(s_feat)
             loss = nn.KLDivLoss()(s_feat, t_feat)
             loss_distill += loss
         x = nn.functional.avg_pool2d(s_feats[-1], 4)
