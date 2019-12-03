@@ -342,7 +342,7 @@ class Random_Cifar(pl.LightningModule):
             torchvision.datasets.CIFAR10('./data', train=True, 
              transform=data_grayscale,  download=True),
 
-            ]
+            ])
 
         if self.hparams.gpus > 1:
             dist_sampler = torch.utils.data.distributed.DistributedSampler(trainset)
