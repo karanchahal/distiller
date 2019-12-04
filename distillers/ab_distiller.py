@@ -166,9 +166,7 @@ def run_ab_distillation(s_net, t_net, **params):
 
     # Student training
     print("---------- Training AB Student -------")
-    sname = params["s_name"]
     s_config = copy.deepcopy(params)
-    s_config["name"] = sname
     s_trainer = KDTrainer(s_net, t_net=t_net, config=s_config)
     best_s_acc = s_trainer.train()
     return best_s_acc

@@ -84,7 +84,6 @@ class Distiller(nn.Module):
 
         t_feats, t_pool, t_out = self.t_net(x, is_feat=True, use_relu=False)
         s_feats, s_pool, s_out = self.s_net(x, is_feat=True, use_relu=False)
-        t_feats_num = len(t_feats)
         s_feats_num = len(s_feats)
 
         loss_distill = 0
