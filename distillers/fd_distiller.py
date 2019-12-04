@@ -65,13 +65,17 @@ def get_net_info(net):
     return feat_layers, linear, channels
 
 
-def get_features(feat_layers, x):
-    feats = []
+def get_layers(layers, lasts, x):
+    layer_feats = []
+    outs = []
     out = x
-    for layer in feat_layers:
+    for layer in layers:
         out = layer(out)
-        feats.append(out)
-    return feats
+        layer_feats.append(out)
+    for last in lasts:
+        out = last(out)
+        outs.append(out)
+    return layer_feats, outs
 
 
 def distillation_loss(source, target, margin):
@@ -86,12 +90,7 @@ def compute_last_layer(linear, last_channel):
     w_in = last_channel[2]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    module = nn.Sequential(
-        nn.ReLU(),
-        nn.AvgPool2d(pooling),
-        nn.Flatten(),
-        linear)
-    return module
+    return [nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear]
 
 
 class Distiller(nn.Module):
@@ -104,13 +103,12 @@ class Distiller(nn.Module):
         self.connectors = nn.ModuleList(connectors)
 
         # infer the necessary pooling based on the last feature size
-        self.last = compute_last_layer(self.s_linear, s_channels[-1])
-        self.s_net = s_net
-        self.t_net = t_net
+        self.s_last = compute_last_layer(self.s_linear, s_channels[-1])
+        self.t_last = compute_last_layer(self.t_linear, t_channels[-1])
         self.batch_size = batch_size
-        self.y = torch.ones([batch_size], device=device)
+        self.y = torch.full([batch_size], 1, device=device)
 
-    def compute_feature_loss(self, s_feats, t_feats):
+    def compute_feature_loss(self, s_feats, t_feats, targets):
         loss_distill = 0.0
         for idx in range(len(s_feats)):
             t_feat = t_feats[idx]
@@ -120,18 +118,21 @@ class Distiller(nn.Module):
             s_feat = s_feats[s_idx]
             connector = self.connectors[idx]
             s_feat = connector(s_feat)
-            s_feat = s_feat.reshape((self.batch_size, -1))
-            t_feat = t_feat.reshape((self.batch_size, -1))
-            loss = nn.CosineEmbeddingLoss()(s_feat, t_feat, self.y)
-            loss_distill += loss
+            s_feat = s_feat.reshape((s_feat.shape[0], -1))
+            t_feat = t_feat.reshape((t_feat.shape[0], -1))
+            s_feat = nn.functional.normalize(s_feat)
+            t_feat = nn.functional.normalize(t_feat)
+            loss_distill += nn.CosineEmbeddingLoss()(s_feat, t_feat, targets)
         return loss_distill
 
-    def forward(self, x, is_loss=False):
-        s_feats = get_features(self.s_feat_layers, x)
-        t_feats = get_features(self.t_feat_layers, x)
-        s_out = self.last(s_feats[-1])
-        loss_distill = self.compute_feature_loss(s_feats, t_feats)
+    def forward(self, x, targets=None, is_loss=False):
+        s_feats, s_outs = get_layers(self.s_feat_layers, self.s_last, x)
+        s_out = s_outs[-1]
         if is_loss:
+            t_feats, t_outs = get_layers(self.t_feat_layers, self.t_last, x)
+            loss_distill = nn.MSELoss()(s_outs[3], t_outs[3])
+            loss_distill += self.compute_feature_loss(
+                s_feats, t_feats, targets)
             return s_out, loss_distill
         return s_out
 
@@ -140,15 +141,14 @@ class FDTrainer(BaseTrainer):
     def __init__(self, s_net, config):
         super(FDTrainer, self).__init__(s_net, config)
         # the student net is the base net
-        self.s_net = self.net.s_net
-        self.d_net = self.net
+        self.s_net = s_net
 
     def calculate_loss(self, data, target):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        output, loss_distill = self.d_net(data, is_loss=True)
+        output, loss_distill = self.s_net(data, target, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = loss_CE * (1 + loss_distill)
+        loss = loss_CE + loss_distill
         loss.backward()
         self.optimizer.step()
         return output, loss
@@ -159,6 +159,8 @@ def run_fd_distillation(s_net, t_net, **params):
     # Student training
     print("---------- Training FD Student -------")
     s_net = Distiller(s_net, t_net).to(params["device"])
+    total_params = sum(p.numel() for p in s_net.parameters())
+    print(f"FD distiller total parameters: {total_params}")
     s_trainer = FDTrainer(s_net, config=params)
     best_s_acc = s_trainer.train()
 
