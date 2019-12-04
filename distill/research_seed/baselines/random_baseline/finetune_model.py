@@ -32,10 +32,10 @@ def load_model_chk(model, path):
     model.load_state_dict(new_state_dict)
     return model
 
-class Finetune_Model(pl.LightningModule):
+class Finetune_Cifar(pl.LightningModule):
 
     def __init__(self, student, teacher, hparams):
-        super(Finetune_Model, self).__init__()
+        super(Finetune_Cifar, self).__init__()
         # not the best model...
         self.hparams = hparams
 
