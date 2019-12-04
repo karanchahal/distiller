@@ -33,7 +33,14 @@ DISTILL_EPOCHS = 10
 
 class Active_Soft_WRN_norelu(nn.Module):
     def __init__(self, t_net, s_net):
+
         super(Active_Soft_WRN_norelu, self).__init__()
+
+        # another hack to support dataparallel models...
+        if isinstance(t_net, nn.DataParallel):
+            t_net = t_net.module
+        if isinstance(s_net, nn.DataParallel):
+            s_net = s_net.module
 
         # Connection layers
         if t_net.nChannels == s_net.nChannels:
