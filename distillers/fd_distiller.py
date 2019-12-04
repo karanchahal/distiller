@@ -46,7 +46,7 @@ def get_layer_types(feat_layers, types):
     return conv_layers
 
 
-def get_net_info(net):
+def get_net_info(net, feats_as_module=False):
     device = next(net.parameters()).device
     if isinstance(net, nn.DataParallel):
         net = net.module
@@ -62,6 +62,8 @@ def get_net_info(net):
     for layer in feat_layers:
         x = layer(x)
         channels.append(x.shape[1:])
+    if feats_as_module:
+        return nn.ModuleList(feat_layers), linear, channels
     return feat_layers, linear, channels
 
 
@@ -90,30 +92,30 @@ def compute_last_layer(linear, last_channel):
     w_in = last_channel[2]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    return nn.ModuleList([nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear])
+    modules = [nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear]
+    return nn.ModuleList(modules)
 
 
 class Distiller(nn.Module):
     def __init__(self, s_net, t_net, batch_size=128, device="cuda"):
         super(Distiller, self).__init__()
 
-        self.s_feat_layers, self.s_linear, s_channels = get_net_info(s_net)
+        self.s_feat_layers, self.s_linear, s_channels = get_net_info(
+            s_net, True)
         self.t_feat_layers, self.t_linear, t_channels = get_net_info(t_net)
-        connectors = build_connectors(s_channels, t_channels)
-        self.connectors = nn.ModuleList(connectors)
+        # connectors = build_connectors(s_channels, t_channels)
+        # self.connectors = nn.ModuleList(connectors)
 
         # infer the necessary pooling based on the last feature size
         self.s_last = compute_last_layer(self.s_linear, s_channels[-1])
         self.t_last = compute_last_layer(self.t_linear, t_channels[-1])
+        # freeze the teacher completely
         for t_layer in self.t_feat_layers:
             t_layer.requires_grad = False
         for t_layer in self.t_last:
             t_layer.requires_grad = False
-        self.s_net = s_net
-        self.batch_size = batch_size
-        self.y = torch.full([batch_size], 1, device=device)
 
-    def compute_feature_loss(self, s_feats, t_feats, targets):
+    def compute_feature_loss(self, s_feats, t_feats):
         loss_distill = 0.0
         for idx in range(len(s_feats)):
             t_feat = t_feats[idx]
@@ -123,11 +125,11 @@ class Distiller(nn.Module):
             s_feat = s_feats[s_idx]
             connector = self.connectors[idx]
             s_feat = connector(s_feat)
-            s_feat = s_feat.reshape((s_feat.shape[0], -1))
-            t_feat = t_feat.reshape((t_feat.shape[0], -1))
-            s_feat = nn.functional.normalize(s_feat)
-            t_feat = nn.functional.normalize(t_feat)
-            loss_distill += nn.CosineEmbeddingLoss()(s_feat, t_feat, targets)
+            # s_feat = s_feat.reshape((s_feat.shape[0], -1))
+            # t_feat = t_feat.reshape((t_feat.shape[0], -1))
+            # s_feat = nn.functional.normalize(s_feat)
+            # t_feat = nn.functional.normalize(t_feat)
+            loss_distill += nn.MSELoss()(s_feat, t_feat)
         return loss_distill
 
     def forward(self, x, targets=None, is_loss=False):
@@ -136,9 +138,8 @@ class Distiller(nn.Module):
         s_out = s_outs[-1]
         if is_loss:
             loss_distill = 0.0
-            loss_distill += self.compute_feature_loss(
-                s_feats, t_feats, targets)
-            # loss_distill += nn.MSELoss()(s_outs[3], t_outs[3])
+            # loss_distill += self.compute_feature_loss(
+            # s_feats, t_feats)
             return s_out, loss_distill
         return s_out
 
@@ -146,14 +147,11 @@ class Distiller(nn.Module):
 class FDTrainer(BaseTrainer):
     def __init__(self, s_net, config):
         super(FDTrainer, self).__init__(s_net, config)
-        # the student net is the base net
-        self.s_net = self.net.s_net
-        self.d_net = self.net
 
     def calculate_loss(self, data, target):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        output, loss_distill = self.d_net(data, target, is_loss=True)
+        output, loss_distill = self.net(data, target, is_loss=True)
         loss_CE = self.loss_fun(output, target)
         loss = loss_CE + loss_distill
         loss.backward()
