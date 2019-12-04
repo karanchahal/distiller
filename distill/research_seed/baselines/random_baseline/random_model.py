@@ -416,6 +416,7 @@ class Random_Cifar(pl.LightningModule):
         parser.add_argument('--student-model', default='resnet8', type=str, help='teacher student name')
         parser.add_argument('--teacher-model', default='resnet110', type=str, help='teacher student name')
         parser.add_argument('--path-to-teacher', default='', type=str, help='teacher chkp path')
+        parser.add_argument('--path-to-student', default='', type=str, help='student chkp path')
         parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
         return parser

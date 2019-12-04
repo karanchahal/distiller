@@ -6,12 +6,27 @@ from argparse import ArgumentParser
 from research_seed.baselines.random_baseline.random_model import Random_Cifar
 from pytorch_lightning.logging import TestTubeLogger
 from research_seed.baselines.model.model_factory import create_cnn_model, is_resnet
+import torch 
+from collections import OrderedDict
+
+def load_model_chk(model, path, num, n):
+    chkp = torch.load(path)
+    new_state_dict = OrderedDict()
+    for k, v in chkp['state_dict'].items():
+        if k[:num] == n or n == "x":
+            #print(k)
+            name = k[num:] # remove `model.`
+            new_state_dict[name] = v
+    model.load_state_dict(new_state_dict)
+    return model
 
 def main(hparams):
     # init module
 
     # Student
     student = create_cnn_model(hparams.student_model, dataset=hparams.dataset)
+
+    student = load_model_chk(student, hparams.path_to_student, num=8, n="student.")
 
     # Teacher
     teacher = create_cnn_model(hparams.teacher_model, dataset=hparams.dataset)
