@@ -3,6 +3,8 @@ import string
 import json
 import os
 import torch
+from collections import OrderedDict
+
 
 def generate_id():
     sw_id = "".join(random.choice("".join([random.choice(
@@ -27,5 +29,16 @@ def check_dir(directory):
 def load_checkpoint(model, checkpoint_path, device="cpu"):
     device = torch.device(device)
     model_ckp = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(model_ckp["model_state_dict"])
+
+    # handle both dataparallel and normal models
+    model_tmp_dict = OrderedDict()
+    for name, value in model_ckp["model_state_dict"].items():
+        if name.startswith("module."):
+            name = name[7:]
+        model_tmp_dict[name] = value
+
+    if isinstance(model, torch.nn.DataParallel):
+        model.module.load_state_dict(model_tmp_dict)
+    else:
+        model.load_state_dict(model_tmp_dict)
     return model
