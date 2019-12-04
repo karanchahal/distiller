@@ -90,7 +90,7 @@ def compute_last_layer(linear, last_channel):
     w_in = last_channel[2]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    return [nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear]
+    return nn.ModuleList([nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear])
 
 
 class Distiller(nn.Module):
@@ -105,6 +105,11 @@ class Distiller(nn.Module):
         # infer the necessary pooling based on the last feature size
         self.s_last = compute_last_layer(self.s_linear, s_channels[-1])
         self.t_last = compute_last_layer(self.t_linear, t_channels[-1])
+        for t_layer in self.t_feat_layers:
+            t_layer.requires_grad = False
+        for t_layer in self.t_last:
+            t_layer.requires_grad = False
+        self.s_net = s_net
         self.batch_size = batch_size
         self.y = torch.full([batch_size], 1, device=device)
 
@@ -127,12 +132,13 @@ class Distiller(nn.Module):
 
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_outs = get_layers(self.s_feat_layers, self.s_last, x)
+        t_feats, t_outs = get_layers(self.t_feat_layers, self.t_last, x)
         s_out = s_outs[-1]
         if is_loss:
-            t_feats, t_outs = get_layers(self.t_feat_layers, self.t_last, x)
-            loss_distill = nn.MSELoss()(s_outs[3], t_outs[3])
+            loss_distill = 0.0
             loss_distill += self.compute_feature_loss(
                 s_feats, t_feats, targets)
+            # loss_distill += nn.MSELoss()(s_outs[3], t_outs[3])
             return s_out, loss_distill
         return s_out
 
@@ -141,12 +147,13 @@ class FDTrainer(BaseTrainer):
     def __init__(self, s_net, config):
         super(FDTrainer, self).__init__(s_net, config)
         # the student net is the base net
-        self.s_net = s_net
+        self.s_net = self.net.s_net
+        self.d_net = self.net
 
     def calculate_loss(self, data, target):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        output, loss_distill = self.s_net(data, target, is_loss=True)
+        output, loss_distill = self.d_net(data, target, is_loss=True)
         loss_CE = self.loss_fun(output, target)
         loss = loss_CE + loss_distill
         loss.backward()
