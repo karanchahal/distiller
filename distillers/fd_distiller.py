@@ -11,19 +11,16 @@ def build_feature_connector(s_channel, t_channel):
     h_out = t_channel[1]
     w_out = t_channel[2]
 
+    connector = []
     if h_in < h_out or w_in < w_out:
-        stride = int(h_out / (h_in - 1))
-        kernel = 1
-        conv = nn.ConvTranspose2d(c_in, c_out, kernel_size=kernel,
-                                  stride=stride, padding=0, bias=False)
-    else:
-        stride = int(h_in / h_out)
-        conv = nn.Conv2d(c_in, c_out, kernel_size=1,
-                         stride=stride, padding=0, bias=False)
-    connector = [
-        conv,
-        nn.BatchNorm2d(c_out),
-    ]
+        scale = int(h_out / h_in)
+        upsampler = nn.Upsample(scale_factor=scale)
+        connector.append(upsampler)
+    stride = int(h_in / h_out)
+    conv = nn.Conv2d(c_in, c_out, kernel_size=1,
+                     stride=stride, padding=0, bias=False)
+    connector.append(conv)
+    connector.append(nn.BatchNorm2d(c_out))
     return nn.Sequential(*connector)
 
 
@@ -31,7 +28,9 @@ def build_connectors(s_channels, t_channels):
     # channel_tuples = zip(t_channels, s_channels)
     channel_tuples = []
     len_s_channels = len(s_channels)
-    for idx, t_channel in enumerate(t_channels):
+    len_t_channels = len(t_channels)
+    for idx in range(len_t_channels):
+        t_channel = t_channels[idx]
         s_idx = idx
         if idx > len_s_channels - 1:
             s_idx = len_s_channels - 1
@@ -80,8 +79,23 @@ def distillation_loss(source, target, margin):
     return torch.abs(loss).sum()
 
 
+def compute_last_layer(linear, last_channel):
+    # assume that h_in and w_in are equal...
+    c_in = last_channel[0]
+    h_in = last_channel[1]
+    w_in = last_channel[2]
+    flat_size = c_in * h_in * w_in
+    pooling = int((flat_size / linear.in_features)**(0.5))
+    module = nn.Sequential(
+        nn.ReLU(),
+        nn.AvgPool2d(pooling),
+        nn.Flatten(),
+        linear)
+    return module
+
+
 class Distiller(nn.Module):
-    def __init__(self, s_net, t_net):
+    def __init__(self, s_net, t_net, batch_size=128, device="cuda"):
         super(Distiller, self).__init__()
 
         self.s_feat_layers, self.s_linear, s_channels = get_net_info(s_net)
@@ -89,27 +103,36 @@ class Distiller(nn.Module):
         connectors = build_connectors(s_channels, t_channels)
         self.connectors = nn.ModuleList(connectors)
 
+        # infer the necessary pooling based on the last feature size
+        self.last = compute_last_layer(self.s_linear, s_channels[-1])
         self.s_net = s_net
         self.t_net = t_net
+        self.batch_size = batch_size
+        self.y = torch.ones([batch_size], device=device)
 
-    def forward(self, x, is_loss=False):
-        t_feats = get_features(self.t_feat_layers, x)
-        s_feats = get_features(self.s_feat_layers, x)
+    def compute_feature_loss(self, s_feats, t_feats):
         loss_distill = 0.0
-        for idx, t_feat in enumerate(t_feats):
+        for idx in range(len(s_feats)):
+            t_feat = t_feats[idx]
             s_idx = idx
             if s_idx > len(s_feats) - 1:
                 s_idx = len(s_feats) - 1
             s_feat = s_feats[s_idx]
             connector = self.connectors[idx]
             s_feat = connector(s_feat)
-            loss = nn.KLDivLoss()(s_feat, t_feat)
+            s_feat = s_feat.reshape((self.batch_size, -1))
+            t_feat = t_feat.reshape((self.batch_size, -1))
+            loss = nn.CosineEmbeddingLoss()(s_feat, t_feat, self.y)
             loss_distill += loss
-        x = nn.functional.avg_pool2d(s_feats[-1], 4)
-        x = x.view(x.size(0), -1)
-        s_out = self.s_linear(x)
+        return loss_distill
+
+    def forward(self, x, is_loss=False):
+        s_feats = get_features(self.s_feat_layers, x)
+        t_feats = get_features(self.t_feat_layers, x)
+        s_out = self.last(s_feats[-1])
+        loss_distill = self.compute_feature_loss(s_feats, t_feats)
         if is_loss:
-            return s_out, loss_distill / float(len(s_feats))
+            return s_out, loss_distill
         return s_out
 
 
@@ -125,8 +148,7 @@ class FDTrainer(BaseTrainer):
         T = self.config["T_student"]
         output, loss_distill = self.d_net(data, is_loss=True)
         loss_CE = self.loss_fun(output, target)
-        loss = lambda_ * loss_distill + loss_CE
-
+        loss = loss_CE * (1 + loss_distill)
         loss.backward()
         self.optimizer.step()
         return output, loss
