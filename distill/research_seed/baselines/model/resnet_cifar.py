@@ -197,7 +197,7 @@ class ResNet_Cifar(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def forward(self, x, p=False):
+    def forward(self, x, p=False, all_fps=False):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
@@ -209,13 +209,16 @@ class ResNet_Cifar(nn.Module):
         pool = self.avgpool(l3)
         
         if p:
-            return pool 
+            return pool
 
         if self.feature_maps:
             return pool, l1, l2, l3
 
         x = pool.view(pool.size(0), -1)
         x = self.fc(x)
+
+        if all_fps:
+            return x, pool, l1, l2, l3
 
         return x
 
