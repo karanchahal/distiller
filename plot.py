@@ -13,6 +13,15 @@ FILE_DIR = Path(__file__).resolve().parent
 PLOT_DIR = FILE_DIR.joinpath("plots")
 DATA_DIR = FILE_DIR.joinpath("results/cifar10")
 
+DASH_STYLES = ["",
+               (4, 1.5),
+               (1, 1),
+               (3, 1, 1.5, 1),
+               (5, 1, 1, 1),
+               (5, 1, 2, 1, 2, 1),
+               (2, 2, 3, 1.5),
+               (1, 2.5, 3, 1.2)]
+
 
 def parse_arguments():
     PARSER = argparse.ArgumentParser()
@@ -101,7 +110,7 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     teacher_path = data_dir.joinpath(f"{teacher_name}_val.csv")
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
-    sns.lineplot(data=df, palette="tab10", style="event")
+    sns.lineplot(data=df, palette="tab10", style="event", dashes=DASH_STYLES)
     util.check_dir(plot_dir)
     plot_dir = Path(plot_dir).joinpath(test_id)
     plt_name = f"{epochs}_epochs_{teacher_name}_to_{student_name}"

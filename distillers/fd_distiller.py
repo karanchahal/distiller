@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from trainer import BaseTrainer
 
+DEPTH = 1
+
 
 def build_feature_connector(s_channel, t_channel):
     c_in = s_channel[0]
@@ -27,14 +29,10 @@ def build_feature_connector(s_channel, t_channel):
 def build_connectors(s_channels, t_channels):
     # channel_tuples = zip(t_channels, s_channels)
     channel_tuples = []
-    len_s_channels = len(s_channels)
-    len_t_channels = len(t_channels)
-    for idx in range(len_t_channels):
+    for idx in range(DEPTH):
+        s_channel = s_channels[idx]
         t_channel = t_channels[idx]
-        s_idx = idx
-        if idx > len_s_channels - 1:
-            s_idx = len_s_channels - 1
-        channel_tuples.append((s_channels[s_idx], t_channel))
+        channel_tuples.append((s_channel, t_channel))
     return [build_feature_connector(s, t) for s, t in channel_tuples]
 
 
@@ -103,8 +101,8 @@ class Distiller(nn.Module):
         self.s_feat_layers, self.s_linear, s_channels = get_net_info(
             s_net, True)
         self.t_feat_layers, self.t_linear, t_channels = get_net_info(t_net)
-        # connectors = build_connectors(s_channels, t_channels)
-        # self.connectors = nn.ModuleList(connectors)
+        connectors = build_connectors(s_channels, t_channels)
+        self.connectors = nn.ModuleList(connectors)
 
         # infer the necessary pooling based on the last feature size
         self.s_last = compute_last_layer(self.s_linear, s_channels[-1])
@@ -117,31 +115,22 @@ class Distiller(nn.Module):
 
     def compute_feature_loss(self, s_feats, t_feats):
         loss_distill = 0.0
-        for idx in range(len(s_feats)):
+        for idx in range(DEPTH):
             t_feat = t_feats[idx]
-            s_idx = idx
-            if s_idx > len(s_feats) - 1:
-                s_idx = len(s_feats) - 1
-            s_feat = s_feats[s_idx]
+            s_feat = s_feats[idx]
             connector = self.connectors[idx]
             s_feat = connector(s_feat)
-            # s_feat = s_feat.reshape((s_feat.shape[0], -1))
-            # t_feat = t_feat.reshape((t_feat.shape[0], -1))
-            # s_feat = nn.functional.normalize(s_feat)
-            # t_feat = nn.functional.normalize(t_feat)
             loss_distill += nn.MSELoss()(s_feat, t_feat)
         return loss_distill
 
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_outs = get_layers(self.s_feat_layers, self.s_last, x)
         t_feats, t_outs = get_layers(self.t_feat_layers, self.t_last, x)
-        s_out = s_outs[-1]
         if is_loss:
             loss_distill = 0.0
-            # loss_distill += self.compute_feature_loss(
-            # s_feats, t_feats)
-            return s_out, loss_distill
-        return s_out
+            loss_distill += self.compute_feature_loss(s_feats, t_feats)
+            return s_outs[-1], loss_distill
+        return s_outs[-1]
 
 
 class FDTrainer(BaseTrainer):
