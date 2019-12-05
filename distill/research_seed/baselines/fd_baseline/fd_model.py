@@ -124,6 +124,11 @@ class FD_Cifar(pl.LightningModule):
             'loss': loss,
             'log' : {
                 'train_loss' : loss.item(),
+                'train_first_loss' : loss1.item(),
+                'train_second_loss' : loss2.item(),
+                'train_third_loss' : loss3.item(),
+                'train_pool_loss' : loss4.item(),
+                'train_kd_loss' : loss_kd.item(),
                 'train_accuracy': float(self.train_num_correct*100/self.train_step),
             } 
         }
@@ -274,7 +279,7 @@ class FD_Cifar(pl.LightningModule):
         parser.add_argument('--teacher-model', default='resnet110', type=str, help='teacher student name')
         parser.add_argument('--path-to-teacher', default='', type=str, help='teacher chkp path')
         parser.add_argument('--path-to-student', default='', type=str, help='student chkp path')
-        parser.add_argument('--temperature', default=10, type=float, help='Temperature for knowledge distillation')
+        parser.add_argument('--temperature', default=5, type=float, help='Temperature for knowledge distillation')
         parser.add_argument('--alpha', default=0.7, type=float, help='Alpha for knowledge distillation')
         return parser
 
