@@ -107,10 +107,10 @@ class FD_Cifar(pl.LightningModule):
         y_s, pool_s, l1_s, l2_s, l3_s = self.forward(x, 'student')
         
         
-        loss1 = self.loss_fn_mse(l1_s, l1_t)
-        loss2 = self.loss_fn_mse(l2_s, l2_t)
-        loss3 = self.loss_fn_mse(l3_s, l3_t)
-        loss4 = self.loss_fn_mse(pool_s, pool_t)
+        loss1 = 0.1*self.loss_fn_mse(l1_s, l1_t)
+        loss2 = 0.1*self.loss_fn_mse(l2_s, l2_t)
+        loss3 = 0.1*self.loss_fn_mse(l3_s, l3_t)
+        loss4 = 0.2*self.loss_fn_mse(pool_s, pool_t)
         loss_kd = self.loss_fn_kd(y_s, y, y_t)
 
         loss = loss1 + loss2 + loss3 + loss4 + loss_kd
@@ -141,10 +141,10 @@ class FD_Cifar(pl.LightningModule):
         y_t, pool_t, l1_t, l2_t, l3_t = self.forward(x, 'teacher')
         y_s, pool_s, l1_s, l2_s, l3_s = self.forward(x, 'student')
         
-        loss1 = self.loss_fn_mse(l1_s, l1_t)
-        loss2 = self.loss_fn_mse(l2_s, l2_t)
-        loss3 = self.loss_fn_mse(l3_s, l3_t)
-        loss4 = self.loss_fn_mse(pool_s, pool_t)
+        loss1 = 0.1*self.loss_fn_mse(l1_s, l1_t)
+        loss2 = 0.1*self.loss_fn_mse(l2_s, l2_t)
+        loss3 = 0.1*self.loss_fn_mse(l3_s, l3_t)
+        loss4 = 0.2*self.loss_fn_mse(pool_s, pool_t)
         loss_kd = self.loss_fn_kd(y_s, y, y_t)
 
         val_loss = loss1 + loss2 + loss3 + loss4 + loss_kd
