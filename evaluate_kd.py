@@ -86,6 +86,15 @@ def init_student(s_name, params):
     return s_net
 
 
+def freeze_teacher(t_net):
+    # freeze the layers of the teacher
+    for param in t_net.parameters():
+        param.requires_grad = False
+    # set the teacher net into evaluation mode
+    t_net.eval()
+    return t_net
+
+
 def test_nokd(s_net, params):
     print("---------- Training NOKD -------")
     nokd_config = params.copy()
@@ -95,6 +104,7 @@ def test_nokd(s_net, params):
 
 
 def test_kd(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     print("---------- Training KD -------")
     kd_config = params.copy()
     kd_trainer = KDTrainer(s_net, t_net=t_net, config=kd_config)
@@ -103,6 +113,7 @@ def test_kd(s_net, t_net, params):
 
 
 def test_ta(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     num_classes = params["num_classes"]
     # Arguments specifically for the teacher assistant approach
     params["ta_name"] = "resnet8"
@@ -113,30 +124,35 @@ def test_ta(s_net, t_net, params):
 
 
 def test_ab(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     # Arguments specifically for the ab approach
     best_ab_acc = run_ab_distillation(s_net, t_net, **params)
     return best_ab_acc
 
 
 def test_rkd(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     # Arguments specifically for the ab approach
     best_rkd_acc = run_rkd_distillation(s_net, t_net, **params)
     return best_rkd_acc
 
 
 def test_pkd(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     # Arguments specifically for the ab approach
     best_pkd_acc = run_pkd_distillation(s_net, t_net, **params)
     return best_pkd_acc
 
 
 def test_oh(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
     # Arguments specifically for the ab approach
     best_oh_acc = run_oh_distillation(s_net, t_net, **params)
     return best_oh_acc
 
 
 def test_fd(s_net, t_net, params):
+
     # Arguments specifically for the ab approach
     best_fd_acc = run_fd_distillation(s_net, t_net, **params)
     return best_fd_acc
@@ -153,11 +169,6 @@ def run_benchmarks(modes, params, s_name, t_name):
 
         # reset the teacher
         t_net = util.load_checkpoint(t_net, best_teacher, params["device"])
-        # freeze the layers of the teacher
-        for param in t_net.parameters():
-            param.requires_grad = False
-        # set the teacher net into evaluation mode
-        t_net.eval()
 
         s_net = init_student(s_name, params)
         params_t["test_name"] = s_name

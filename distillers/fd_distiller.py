@@ -108,8 +108,8 @@ class Distiller(nn.Module):
         self.s_last = compute_last_layer(self.s_linear, s_channels[-1])
         self.t_last = compute_last_layer(self.t_linear, t_channels[-1])
         # freeze the teacher completely
-        for t_layer in self.t_feat_layers:
-            t_layer.requires_grad = False
+        # for t_layer in self.t_feat_layers:
+        #     t_layer.requires_grad = False
         for t_layer in self.t_last:
             t_layer.requires_grad = False
 
