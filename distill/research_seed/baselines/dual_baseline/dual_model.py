@@ -219,7 +219,7 @@ class Dual_Cifar(pl.LightningModule):
         val_accuracy = float(self.val_num_correct*100/self.val_step)
 
         if self.teacher_turn == True:
-            self.current_teacher_acc = val_accuracy
+            self.current_val_teacher_acc = val_accuracy
             self.scheduler2.step(np.around(avg_loss.item(),2))
             self.teacher_epochs += 1
             log_metrics = {
@@ -231,7 +231,7 @@ class Dual_Cifar(pl.LightningModule):
                 'teacher_epochs' : self.teacher_epochs
             } 
         elif self.student_turn == True:
-            self.current_student_acc = val_accuracy
+            self.current_val_student_acc = val_accuracy
             self.scheduler1.step(np.around(avg_loss.item(),2))
             self.student_epochs += 1
             log_metrics = {
