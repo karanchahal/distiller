@@ -1,10 +1,9 @@
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from pathlib import Path
 import numpy as np
 import os
-from torch.utils.data import Dataset, TensorDataset
+from torch.utils.data import Dataset
 NUM_WORKERS = 4
 
 
@@ -13,26 +12,26 @@ class CustomTensorDataset(Dataset):
     """
 
     def __init__(self, tensors, transform=None):
+        self.imgs = tensors[0]
+        self.targets = tensors[1]
         self.tensors = tensors
         self.transform = transform
+        self.len = len(self.imgs)
 
     def __getitem__(self, index):
-        x = self.tensors[0][index]
-
+        x = self.imgs[index]
         if self.transform:
             x = self.transform(x)
-
-        y = self.tensors[1][index]
-
+        y = self.targets[index]
         return x, y
 
     def __len__(self):
-        return len(self.tensors[0])
+        return self.len
 
 
-def load_new_test_data(version_string="v6"):
+def load_new_test_data():
     data_path = os.path.join(os.path.dirname(__file__), '.')
-    filename = 'cifar10.1_' + version_string
+    filename = 'cifar10.1_v6'
     label_filename = filename + '_labels.npy'
     imagedata_filename = filename + '_data.npy'
     label_filepath = os.path.abspath(os.path.join(data_path, label_filename))
@@ -47,7 +46,6 @@ def load_new_test_data(version_string="v6"):
 
 
 def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
-    imagedata, labels = load_new_test_data()
     """
       :param num_classes: 10 for cifar10, 100 for cifar100
       :param dataset_dir: location of datasets,
@@ -84,10 +82,11 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
                        download=True,
                        transform=train_transform)
 
-    testset = CustomTensorDataset((imagedata, labels), transform=test_transform)
-    # testset = dataset(root=dataset_dir, train=False,
-    #                   download=True,
-    #                   transform=test_transform)
+    # imagedata, labels = load_new_test_data()
+    # testset = CustomTensorDataset((imagedata, labels), transform=test_transform)
+    testset = dataset(root=dataset_dir, train=False,
+                      download=True,
+                      transform=test_transform)
 
     train_loader = torch.utils.data.DataLoader(trainset,
                                                batch_size=batch_size,

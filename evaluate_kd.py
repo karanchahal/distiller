@@ -152,7 +152,7 @@ def test_oh(s_net, t_net, params):
 
 
 def test_fd(s_net, t_net, params):
-
+    t_net = freeze_teacher(t_net)
     # Arguments specifically for the ab approach
     best_fd_acc = run_fd_distillation(s_net, t_net, **params)
     return best_fd_acc
