@@ -58,6 +58,8 @@ class Dual_Cifar(pl.LightningModule):
         self.train_student_step = 0
         self.train_student_num_correct = 0
 
+        self.schX = False
+
 
     def forward(self, x, mode):
         if mode == 'teacher':
@@ -109,8 +111,12 @@ class Dual_Cifar(pl.LightningModule):
             self.optimizer2.step()
             self.optimizer2.zero_grad()
         else:
-            self.optimizer1.step()
-            self.optimizer1.zero_grad() 
+            if self.schX == False:
+                self.optimizer1.step()
+                self.optimizer1.zero_grad()
+            else:
+                self.optimX.step()
+                self.optimX.zero_grad()
 
     def setup_mode(self):
         if self.teacher_turn == True:
@@ -118,9 +124,14 @@ class Dual_Cifar(pl.LightningModule):
             if self.teacher_epochs >  5:
                 # if teacher has been training for more than 5 epochs without gaining 2 percent, give to student training
                 # forces more training time to student
-                self.prev_val_teacher_acc = self.current_val_teacher_acc
-                self.students_turn()
+
+                if self.current_val_teacher_acc > self.prev_val_teacher_acc:
+                    self.prev_val_teacher_acc = self.current_val_teacher_acc
+                    self.students_turn()
+                else:
+                    self.teachers_turn()
                 return
+
 
             if self.current_val_teacher_acc > self.prev_val_teacher_acc + 2:
                 self.prev_val_teacher_acc = self.current_val_teacher_acc
@@ -221,7 +232,6 @@ class Dual_Cifar(pl.LightningModule):
         if self.teacher_turn == True:
             self.current_val_teacher_acc = val_accuracy
             self.scheduler2.step(np.around(avg_loss.item(),2))
-            self.teacher_epochs += 1
             log_metrics = {
                 'val_avg_teacher_loss': avg_loss.item(),
                 'val_teacher_accuracy': self.current_val_teacher_acc,
@@ -231,8 +241,12 @@ class Dual_Cifar(pl.LightningModule):
             } 
         elif self.student_turn == True:
             self.current_val_student_acc = val_accuracy
-            self.scheduler1.step(np.around(avg_loss.item(),2))
-            self.student_epochs += 1
+            if self.current_val_student_acc > 84:
+                self.schX = True
+            
+            if self.schX == False:
+                self.scheduler1.step(np.around(avg_loss.item(),2))
+
             log_metrics = {
                 'val_avg_student_loss': avg_loss.item(),
                 'val_student_accuracy': self.current_val_student_acc,
@@ -266,6 +280,7 @@ class Dual_Cifar(pl.LightningModule):
 
         self.scheduler1 = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer1, 'min',patience=5,factor=0.5,verbose=True)
         self.scheduler2 = optim.lr_scheduler.ReduceLROnPlateau(self.optimizer2, 'min',patience=5,factor=0.5,verbose=True)
+        self.optimX = torch.optim.Adam(self.student.parameters(), lr=0.00001)
         return self.optimizer1
 
     @pl.data_loader
