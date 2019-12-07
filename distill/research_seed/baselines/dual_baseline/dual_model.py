@@ -224,11 +224,10 @@ class Dual_Cifar(pl.LightningModule):
             self.teacher_epochs += 1
             log_metrics = {
                 'val_avg_teacher_loss': avg_loss.item(),
-                'val_teacher_accuracy': val_accuracy,
+                'val_teacher_accuracy': self.current_val_teacher_acc,
+                'val_student_accuracy': self.current_val_student_acc,
                 'student_turn' : 0,
                 'teacher_turn' : 1,
-                'student_epochs': self.student_epochs,
-                'teacher_epochs' : self.teacher_epochs
             } 
         elif self.student_turn == True:
             self.current_val_student_acc = val_accuracy
@@ -236,11 +235,11 @@ class Dual_Cifar(pl.LightningModule):
             self.student_epochs += 1
             log_metrics = {
                 'val_avg_student_loss': avg_loss.item(),
-                'val_student_accuracy': val_accuracy,
+                'val_student_accuracy': self.current_val_student_acc,
+                'val_teacher_accuracy': self.current_val_teacher_acc,
                 'student_turn' : 1,
                 'teacher_turn' : 0,
-                'student_epochs': self.student_epochs,
-                'teacher_epochs' : self.teacher_epochs
+
             }
         
         # set mode of training; teacher or student
