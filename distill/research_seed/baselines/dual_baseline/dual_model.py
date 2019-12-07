@@ -164,7 +164,7 @@ class Dual_Cifar(pl.LightningModule):
                 'teacher_train_loss': loss.item(),
                 'teacher_train_accuracy': self.current_train_teacher_acc
             }
-        else:
+        elif self.student_turn == True:
             y_hat = self.forward(x, 'student')
             y_t = self.forward(x, 'teacher')
             loss = self.kd_loss(y_hat, y, y_t)
@@ -199,7 +199,7 @@ class Dual_Cifar(pl.LightningModule):
             return {
                 'val_loss': val_loss
             }
-        else:
+        elif self.student_turn == True:
             self.student.eval()
             y_hat = self.forward(x,'student')
             val_loss = self.cross_entropy(y_hat, y)
@@ -218,7 +218,7 @@ class Dual_Cifar(pl.LightningModule):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
         val_accuracy = float(self.val_num_correct*100/self.val_step)
 
-        if self.teachers_turn:
+        if self.teacher_turn == True:
             self.current_teacher_acc = val_accuracy
             self.scheduler2.step(np.around(avg_loss.item(),2))
             self.teacher_epochs += 1
@@ -230,7 +230,7 @@ class Dual_Cifar(pl.LightningModule):
                 'student_epochs': self.student_epochs,
                 'teacher_epochs' : self.teacher_epochs
             } 
-        else:
+        elif self.student_turn == True:
             self.current_student_acc = val_accuracy
             self.scheduler1.step(np.around(avg_loss.item(),2))
             self.student_epochs += 1
