@@ -1,7 +1,6 @@
 import argparse
 from pathlib import Path
 
-import torch
 from data_loader import get_cifar
 from models.model_factory import create_cnn_model
 from distillers import *
@@ -16,8 +15,8 @@ USE_ID = False
 
 def parse_arguments():
     parser = argparse.ArgumentParser(
-        description="Knowledge Distillation Params")
-    parser.add_argument("--epochs", default=200, type=int,
+        description="Test parameters")
+    parser.add_argument("--epochs", default=100, type=int,
                         help="number of total epochs to run")
     parser.add_argument("--dataset", default="cifar100", type=str,
                         help="dataset. can be either cifar10 or cifar100")
@@ -69,7 +68,7 @@ def setup_teacher(t_name, params):
     teacher_trainer = BaseTrainer(t_net, config=teacher_config)
     best_t_acc = teacher_trainer.validate()
 
-    # also save this information in a csv file
+    # also save this information in a csv file for plotting
     name = params["teacher_name"] + "_val"
     acc_file_name = params["results_dir"].joinpath(f"{name}.csv")
     with acc_file_name.open("w+") as acc_file:
@@ -79,7 +78,7 @@ def setup_teacher(t_name, params):
     return t_net, best_teacher, best_t_acc
 
 
-def init_student(s_name, params):
+def setup_student(s_name, params):
     # Student Model
     num_classes = params["num_classes"]
     s_net = create_cnn_model(s_name, num_classes, params["device"])
@@ -95,7 +94,7 @@ def freeze_teacher(t_net):
     return t_net
 
 
-def test_nokd(s_net, params):
+def test_nokd(s_net, t_net, params):
     print("---------- Training NOKD -------")
     nokd_config = params.copy()
     nokd_trainer = BaseTrainer(s_net, config=nokd_config)
@@ -141,35 +140,30 @@ def test_ta(s_net, t_net, params):
 
 def test_ab(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    # Arguments specifically for the ab approach
     best_ab_acc = run_ab_distillation(s_net, t_net, **params)
     return best_ab_acc
 
 
 def test_rkd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    # Arguments specifically for the ab approach
     best_rkd_acc = run_rkd_distillation(s_net, t_net, **params)
     return best_rkd_acc
 
 
 def test_pkd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    # Arguments specifically for the ab approach
     best_pkd_acc = run_pkd_distillation(s_net, t_net, **params)
     return best_pkd_acc
 
 
 def test_oh(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    # Arguments specifically for the ab approach
     best_oh_acc = run_oh_distillation(s_net, t_net, **params)
     return best_oh_acc
 
 
 def test_fd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    # Arguments specifically for the ab approach
     best_fd_acc = run_fd_distillation(s_net, t_net, **params)
     return best_fd_acc
 
@@ -184,7 +178,7 @@ def test_allkd(s_name, params):
         t_net, best_teacher, best_t_acc = setup_teacher(t_name, params_t)
         t_net = util.load_checkpoint(t_net, best_teacher, params_t["device"])
         t_net = freeze_teacher(t_net)
-        s_net = init_student(s_name, params_t)
+        s_net = setup_student(s_name, params_t)
         params_t["test_name"] = s_name
         params_t["results_dir"] = params_t["results_dir"].joinpath("allkd")
         util.check_dir(params_t["results_dir"])
@@ -206,6 +200,8 @@ def test_allkd(s_name, params):
 
 def run_benchmarks(modes, params, s_name, t_name):
     results = {}
+
+    # if we test allkd we do not need to train an individual teacher
     if "allkd" in modes:
         best_t_acc, results["allkd"] = test_allkd(s_name, params)
         modes.remove("allkd")
@@ -219,53 +215,31 @@ def run_benchmarks(modes, params, s_name, t_name):
         # reset the teacher
         t_net = util.load_checkpoint(t_net, best_teacher, params["device"])
 
-        s_net = init_student(s_name, params)
+        # load the student and create a results directory for the mode
+        s_net = setup_student(s_name, params)
         params_s["test_name"] = s_name
         params_s["results_dir"] = params_s["results_dir"].joinpath(mode)
         util.check_dir(params_s["results_dir"])
-        if mode == "nokd":
-            results[mode] = test_nokd(s_net, params_s)
-        elif mode == "kd":
-            results[mode] = test_kd(s_net, t_net, params_s)
-        elif mode == "2kd":
-            results[mode] = test_2kd(s_net, t_net, params_s)
-        elif mode == "takd":
-            results[mode] = test_ta(s_net, t_net, params_s)
-        elif mode == "ab":
-            results[mode] = test_ab(s_net, t_net, params_s)
-        elif mode == "rkd":
-            results[mode] = test_rkd(s_net, t_net, params_s)
-        elif mode == "pkd":
-            results[mode] = test_pkd(s_net, t_net, params_s)
-        elif mode == "oh":
-            results[mode] = test_oh(s_net, t_net, params_s)
-        elif mode == "fd":
-            results[mode] = test_fd(s_net, t_net, params_s)
-        else:
+        # start the test
+        try:
+            run_test = globals()[f"test_{mode}"]
+            results[mode] = run_test(s_net, t_net, params_s)
+        except KeyError:
             raise RuntimeError(f"Training mode {mode} not supported!")
 
+    # Dump the overall results
     print(f"Best results teacher {t_name}: {best_t_acc}")
     for name, acc in results.items():
         print(f"Best results for {s_name} with {name} method: {acc}")
 
 
-def setup_torch():
-    use_cuda = torch.cuda.is_available()
-    device = "cuda" if use_cuda else "cpu"
-    if use_cuda:
-        torch.backends.cudnn.benchmark = True
-    # Maximum determinism
-    torch.manual_seed(1)
-    print(f"Using {device} to train.")
-    return device
-
-
 def start_evaluation(args):
-    device = setup_torch()
+    device = util.setup_torch()
     num_classes = 100 if args.dataset == "cifar100" else 10
     train_loader, test_loader = get_cifar(num_classes,
                                           batch_size=args.batch_size)
 
+    # for benchmarking, decided whether we want to use unique test folders
     if USE_ID:
         test_id = util.generate_id()
     else:
@@ -273,26 +247,28 @@ def start_evaluation(args):
     results_dir = Path(args.results_dir).joinpath(test_id)
     results_dir = Path(results_dir).joinpath(args.dataset)
     util.check_dir(results_dir)
-    teacher_name = args.t_name + "_teacher"
 
     # Parsing arguments and prepare settings for training
     params = {
         "epochs": args.epochs,
         "modes": args.modes,
-        "learning_rate": args.learning_rate,
-        "momentum": args.momentum,
-        "weight_decay": args.weight_decay,
         "t_checkpoint": args.t_checkpoint,
         "results_dir": results_dir,
-        "device": device,
-        "num_classes": num_classes,
         "train_loader": train_loader,
         "test_loader": test_loader,
-        "optim": "SGD",
-        "sched": "multisteplr",
-        "teacher_name": teacher_name,
+        # model configuration
+        "device": device,
+        "teacher_name": args.t_name + "_teacher",
         "student_name": args.s_name,
-        "lambda_student": 0.4,
+        "num_classes": num_classes,
+        # hyperparameters
+        "weight_decay": args.weight_decay,
+        "learning_rate": args.learning_rate,
+        "momentum": args.momentum,
+        "sched": "multisteplr",
+        "optim": "SGD",
+        # fixed knowledge distillation parameters
+        "lambda_student": 0.5,
         "T_student": 10,
     }
     test_conf_name = results_dir.joinpath("test_config.json")
@@ -302,5 +278,5 @@ def start_evaluation(args):
 
 
 if __name__ == "__main__":
-    args = parse_arguments()
-    start_evaluation(args)
+    ARGS = parse_arguments()
+    start_evaluation(ARGS)

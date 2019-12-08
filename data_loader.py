@@ -1,13 +1,17 @@
+from pathlib import Path
 import torch
 import torchvision
 import torchvision.transforms as transforms
 import numpy as np
-import os
 from torch.utils.data import Dataset
+
 NUM_WORKERS = 4
 
+# Use a different testset for cifar 10
+USE_CIFAR_10_1 = True
 
-class CustomTensorDataset(Dataset):
+
+class TensorImgSet(Dataset):
     """TensorDataset with support of transforms.
     """
 
@@ -29,30 +33,27 @@ class CustomTensorDataset(Dataset):
         return self.len
 
 
-def load_new_test_data():
-    data_path = os.path.join(os.path.dirname(__file__), '.')
-    filename = 'cifar10.1_v6'
-    label_filename = filename + '_labels.npy'
-    imagedata_filename = filename + '_data.npy'
-    label_filepath = os.path.abspath(os.path.join(data_path, label_filename))
-    imagedata_filepath = os.path.abspath(
-        os.path.join(data_path, imagedata_filename))
-    print('Loading labels from file {}'.format(label_filepath))
-    labels = np.load(label_filepath)
-    print('Loading image data from file {}'.format(imagedata_filepath))
-    imagedata = np.load(imagedata_filepath)
-
+def load_cifar_10_1():
+    # @article{recht2018cifar10.1,
+    #  author = {Benjamin Recht and Rebecca Roelofs and Ludwig Schmidt
+    #  and Vaishaal Shankar},
+    #  title = {Do CIFAR-10 Classifiers Generalize to CIFAR-10?},
+    #  year = {2018},
+    #  note = {\url{https://arxiv.org/abs/1806.00451}},
+    # }
+    # Original Repo: https://github.com/modestyachts/CIFAR-10.1
+    data_path = Path(__file__).parent.joinpath("cifar10_1")
+    label_filename = data_path.joinpath("v6_labels.npy").resolve()
+    imagedata_filename = data_path.joinpath("v6_data.npy").resolve()
+    print(f"Loading labels from file {label_filename}")
+    labels = np.load(label_filename)
+    print(f"Loading image data from file {imagedata_filename}")
+    imagedata = np.load(imagedata_filename)
     return imagedata, torch.Tensor(labels).long()
 
 
 def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
-    """
-      :param num_classes: 10 for cifar10, 100 for cifar100
-      :param dataset_dir: location of datasets,
-       default is a directory named "data"
-      :param batch_size: batchsize, default to 128
-      :return:
-    """
+
     if num_classes == 10:
         # CIFAR10
         print("=> loading CIFAR10...")
@@ -82,11 +83,14 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
                        download=True,
                        transform=train_transform)
 
-    imagedata, labels = load_new_test_data()
-    testset = CustomTensorDataset((imagedata, labels), transform=test_transform)
-    testset = dataset(root=dataset_dir, train=False,
-                      download=True,
-                      transform=test_transform)
+    # Use the normal cifar 10 testset or a new one to test true generalization
+    if USE_CIFAR_10_1 and num_classes == 10:
+        imagedata, labels = load_cifar_10_1()
+        testset = TensorImgSet((imagedata, labels), transform=test_transform)
+    else:
+        testset = dataset(root=dataset_dir, train=False,
+                          download=True,
+                          transform=test_transform)
 
     train_loader = torch.utils.data.DataLoader(trainset,
                                                batch_size=batch_size,

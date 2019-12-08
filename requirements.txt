@@ -1,0 +1,6 @@
+torch
+torchvision
+tqdm
+numpy
+pandas
+seaborn

@@ -19,6 +19,17 @@ def dump_json_config(conf_file_name, config):
                   default=lambda o: "<object>")
 
 
+def setup_torch():
+    use_cuda = torch.cuda.is_available()
+    device = "cuda" if use_cuda else "cpu"
+    if use_cuda:
+        torch.backends.cudnn.benchmark = True
+    # Maximum determinism
+    torch.manual_seed(1)
+    print(f"Using {device} to train.")
+    return device
+
+
 def check_dir(directory):
     # create the folder if it does not exit
     if not directory == "" and not os.path.exists(directory):
