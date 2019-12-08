@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as torch_func
 from trainer import BaseTrainer
 
 
@@ -43,19 +44,41 @@ def set_last_layers(linear, last_channel, as_module=False):
     return modules
 
 
-def get_layers(layers, x, lasts=[], use_relu=True):
+def get_layers(x, layers, classifier=[], use_relu=False):
     layer_feats = []
     outs = []
     out = x
     for layer in layers:
         out = layer(out)
         if use_relu:
-            out = nn.functional.relu(out)
+            out = torch_func.relu(out)
         layer_feats.append(out)
-    for last in lasts:
+    for last in classifier:
         out = last(out)
         outs.append(out)
     return layer_feats, outs
+
+
+def compute_feature_loss(s_feats, t_feats):
+    feature_loss = 0.0
+    t_depth = len(t_feats)
+    s_depth = len(s_feats)
+    depth = t_depth if (t_depth - s_depth) < 0 else s_depth
+    for idx in range(depth):
+        s_feat = s_feats[idx]
+        t_feat = t_feats[idx]
+        t_feat = t_feat.view(t_feat.shape[0], s_feat.shape[1], -1)
+        s_feat = s_feat.view(s_feat.shape[0], s_feat.shape[1], -1)
+        if t_feat.shape[2] > s_feat.shape[2]:
+            out_shape = s_feat.shape[2]
+            t_feat = torch_func.adaptive_avg_pool1d(t_feat, out_shape)
+        else:
+            out_shape = t_feat.shape[2]
+            s_feat = torch_func.adaptive_avg_pool1d(s_feat, out_shape)
+        s_feat = s_feat.view(s_feat.shape[0], -1)
+        t_feat = t_feat.view(t_feat.shape[0], -1)
+        feature_loss += torch_func.smooth_l1_loss(s_feat, t_feat)
+    return feature_loss
 
 
 class Distiller(nn.Module):
@@ -76,46 +99,16 @@ class Distiller(nn.Module):
             y_tensor = torch.zeros(shape).to("cuda")
             self.y_tensors.append(y_tensor)
 
-    def compute_feature_loss(self, s_feats, t_feats):
-        feature_loss = 0.0
-        t_depth = len(t_feats)
-        s_depth = len(s_feats)
-        diff = t_depth - s_depth
-        if diff < 0:
-            offset = 0
-            depth = t_depth
-        else:
-            offset = diff
-            depth = s_depth
-        for idx in range(depth):
-            s_feat = s_feats[idx]
-            t_feat = t_feats[idx + offset]
-            s_c = s_feat.shape[1]
-            t_feat = t_feat.view(t_feat.shape[0], s_c, -1)
-            s_feat = s_feat.view(s_feat.shape[0], s_c, -1)
-            if t_feat.shape[2] > s_feat.shape[2]:
-                out_shape = s_feat.shape[2]
-                t_feat = nn.functional.adaptive_avg_pool1d(t_feat, out_shape)
-            else:
-                out_shape = t_feat.shape[2]
-                s_feat = nn.functional.adaptive_avg_pool1d(s_feat, out_shape)
-            s_feat = s_feat.view(s_feat.shape[0], -1)
-            t_feat = t_feat.view(t_feat.shape[0], -1)
-
-            feature_loss += nn.functional.mse_loss(
-                s_feat, t_feat)
-        return feature_loss / 10000
-
     def forward(self, x, targets=None, is_loss=False):
-        s_feats, s_outs = get_layers(
-            self.s_feat_layers, x, self.s_last, False)
+        s_feats, s_outs = get_layers(x, self.s_feat_layers, self.s_last)
+        out = s_outs[-1]
         if is_loss:
-            t_feats, t_outs = get_layers(
-                self.t_feat_layers, x, self.t_last, False)
+            t_feats, t_outs = get_layers(x, self.t_feat_layers, self.t_last)
             feature_loss = 0.0
-            feature_loss += self.compute_feature_loss(s_feats, t_feats)
-            return s_outs[-1], feature_loss
-        return s_outs[-1]
+            feature_loss += compute_feature_loss(s_feats, t_feats)
+            feature_loss /= x.shape[0]
+            return out, feature_loss
+        return out
 
 
 class FDTrainer(BaseTrainer):
@@ -130,8 +123,8 @@ class FDTrainer(BaseTrainer):
         loss = self.loss_fun(out_s, targets)
 
         # Knowledge Distillation Loss
-        student_max = nn.functional.log_softmax(out_s / T, dim=1)
-        teacher_max = nn.functional.softmax(out_t / T, dim=1)
+        student_max = torch_func.log_softmax(out_s / T, dim=1)
+        teacher_max = torch_func.softmax(out_t / T, dim=1)
         loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         return loss

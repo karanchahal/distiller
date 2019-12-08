@@ -50,7 +50,7 @@ model_dict = {
 }
 
 
-def create_cnn_model(name, num_classes, device):
+def create_model(name, num_classes, device):
     print(f"Building model {name}...")
     model_cls = model_dict[name]
     model = model_cls(num_classes=num_classes)
@@ -66,4 +66,4 @@ def create_cnn_model(name, num_classes, device):
 
 
 # for model in model_dict.keys():
-    # create_cnn_model(model, 10, "cpu")
+    # load_model(model, 10, "cpu")

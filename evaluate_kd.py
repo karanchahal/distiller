@@ -1,9 +1,9 @@
 import argparse
 from pathlib import Path
 
-from data_loader import get_cifar
-from models.model_factory import create_cnn_model
 from distillers import *
+from data_loader import get_cifar
+from models.model_factory import create_model
 from trainer import BaseTrainer, KDTrainer, DualTrainer
 from plot import plot_results
 import util
@@ -48,7 +48,7 @@ def parse_arguments():
 def setup_teacher(t_name, params):
     # Teacher Model
     num_classes = params["num_classes"]
-    t_net = create_cnn_model(t_name, num_classes, params["device"])
+    t_net = create_model(t_name, num_classes, params["device"])
     teacher_config = params.copy()
     teacher_config["test_name"] = params["teacher_name"] + "_teacher"
 
@@ -81,7 +81,7 @@ def setup_teacher(t_name, params):
 def setup_student(s_name, params):
     # Student Model
     num_classes = params["num_classes"]
-    s_net = create_cnn_model(s_name, num_classes, params["device"])
+    s_net = create_model(s_name, num_classes, params["device"])
     return s_net
 
 
@@ -116,7 +116,7 @@ def test_2kd(s_net, t_net1, params):
     print("---------- Training 2KD -------")
     kd_config = params.copy()
     params["t2_name"] = "WRN22_4"
-    t_net2 = create_cnn_model(
+    t_net2 = create_model(
         params["t2_name"], params["num_classes"], params["device"])
     t_net2 = util.load_checkpoint(
         t_net2, "pretrained/WRN_22_4_cifar10_95510_parallel.pth")
@@ -132,7 +132,7 @@ def test_ta(s_net, t_net, params):
     num_classes = params["num_classes"]
     # Arguments specifically for the teacher assistant approach
     params["ta_name"] = "resnet8"
-    ta_model = create_cnn_model(
+    ta_model = create_model(
         params["ta_name"], num_classes, params["device"])
     best_ta_acc = run_takd_distillation(s_net, ta_model, t_net, **params)
     return best_ta_acc

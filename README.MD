@@ -1,9 +1,10 @@
 ## Python Dependencies
-This codebase only supports Python3.6+.
-Required packages:
+This codebase only supports Python 3.6+.
+
+Required Python packages:
 - `torch torchvision tqdm numpy pandas seaborn`
 
-All packages can be installed using `pip3 install --user -r   requirements.txt`.
+All packages can be installed using `pip3 install --user -r requirements.txt`.
 
 ## Run
 The benchmarks can be run via `python3 evaluate_kd.py` and providing the
