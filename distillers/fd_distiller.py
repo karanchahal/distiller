@@ -61,23 +61,22 @@ def get_layers(x, layers, classifier=[], use_relu=False):
 
 def compute_feature_loss(s_feats, t_feats):
     feature_loss = 0.0
-    t_depth = len(t_feats)
-    s_depth = len(s_feats)
-    depth = t_depth if (t_depth - s_depth) < 0 else s_depth
-    for idx in range(depth):
-        s_feat = s_feats[idx]
-        t_feat = t_feats[idx]
-        t_feat = t_feat.view(t_feat.shape[0], s_feat.shape[1], -1)
-        s_feat = s_feat.view(s_feat.shape[0], s_feat.shape[1], -1)
-        if t_feat.shape[2] > s_feat.shape[2]:
-            out_shape = s_feat.shape[2]
-            t_feat = torch_func.adaptive_avg_pool1d(t_feat, out_shape)
-        else:
-            out_shape = t_feat.shape[2]
-            s_feat = torch_func.adaptive_avg_pool1d(s_feat, out_shape)
-        s_feat = s_feat.view(s_feat.shape[0], -1)
-        t_feat = t_feat.view(t_feat.shape[0], -1)
-        feature_loss += torch_func.smooth_l1_loss(s_feat, t_feat)
+    s_totals = []
+    t_totals = []
+    for s_feat in s_feats:
+        s_totals.append(s_feat.view(s_feat.shape[0], -1))
+    for t_feat in t_feats:
+        t_totals.append(t_feat.view(t_feat.shape[0], -1))
+
+    s_total = torch.cat(s_totals, dim=1)
+    t_total = torch.cat(t_totals, dim=1)
+    if s_total.shape[1] > t_total.shape[1]:
+        out_len = t_total.shape[1]
+        s_total = s_total[:, :out_len]
+    else:
+        out_len = s_total.shape[1]
+        t_total = t_total[:, :out_len]
+    feature_loss = torch_func.kl_div(s_total, t_total, reduction="batchmean")
     return feature_loss
 
 
@@ -101,14 +100,14 @@ class Distiller(nn.Module):
 
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_outs = get_layers(x, self.s_feat_layers, self.s_last)
-        out = s_outs[-1]
+        s_out = s_outs[-1]
         if is_loss:
             t_feats, t_outs = get_layers(x, self.t_feat_layers, self.t_last)
+            t_out = t_outs[-1]
             feature_loss = 0.0
             feature_loss += compute_feature_loss(s_feats, t_feats)
-            feature_loss /= x.shape[0]
-            return out, feature_loss
-        return out
+            return s_out, t_out, feature_loss
+        return s_out
 
 
 class FDTrainer(BaseTrainer):
@@ -116,23 +115,25 @@ class FDTrainer(BaseTrainer):
         super(FDTrainer, self).__init__(s_net, config)
         self.t_net = t_net
 
-    def distill_loss(self, out_s, out_t, targets):
+    def distill_loss(self, s_out, t_out, targets):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
         # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(out_s, targets)
+        loss = self.loss_fun(s_out, targets)
 
         # Knowledge Distillation Loss
-        student_max = torch_func.log_softmax(out_s / T, dim=1)
-        teacher_max = torch_func.softmax(out_t / T, dim=1)
+        student_max = torch_func.log_softmax(s_out / T, dim=1)
+        teacher_max = torch_func.softmax(t_out / T, dim=1)
         loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         return loss
 
     def calculate_loss(self, data, targets):
-        s_out, feature_loss = self.net(data, targets, is_loss=True)
-        loss_ce = self.loss_fun(s_out, targets)
-        loss = loss_ce + feature_loss
+        s_out, t_out, feature_loss = self.net(data, targets, is_loss=True)
+        loss = 0.0
+        loss += feature_loss
+        loss += self.loss_fun(s_out, targets)
+        # loss += self.distill_loss(s_out, t_out, targets)
         loss.backward()
         self.optimizer.step()
         return s_out, loss
