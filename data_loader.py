@@ -82,8 +82,8 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
                        download=True,
                        transform=train_transform)
 
-    # imagedata, labels = load_new_test_data()
-    # testset = CustomTensorDataset((imagedata, labels), transform=test_transform)
+    imagedata, labels = load_new_test_data()
+    testset = CustomTensorDataset((imagedata, labels), transform=test_transform)
     testset = dataset(root=dataset_dir, train=False,
                       download=True,
                       transform=test_transform)

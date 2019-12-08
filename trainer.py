@@ -175,6 +175,38 @@ class KDTrainer(Trainer):
         return output, loss
 
 
+class DualTrainer(Trainer):
+    def __init__(self, s_net, t_net1, t_net2, config):
+        super(DualTrainer, self).__init__(s_net, config)
+        # the student net is the base net
+        self.s_net = self.net
+        self.t_net1 = t_net1
+        self.t_net2 = t_net2
+
+    def calculate_loss(self, data, target):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
+        output = self.s_net(data)
+        # Standard Learning Loss ( Classification Loss)
+        loss = self.loss_fun(output, target)
+
+        # Knowledge Distillation Loss
+        teacher_outputs1 = self.t_net1(data)
+        teacher_outputs2 = self.t_net2(data)
+        student_max = F.log_softmax(output / T, dim=1)
+        teacher_max1 = F.softmax(teacher_outputs1 / T, dim=1)
+        teacher_max2 = F.softmax(teacher_outputs2 / T, dim=1)
+        loss_KD = 0.0
+        loss_KD += nn.KLDivLoss(reduction="batchmean")(student_max,
+                                                       teacher_max1)
+        loss_KD += nn.KLDivLoss(reduction="batchmean")(student_max,
+                                                       teacher_max2)
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
+        loss.backward()
+        self.optimizer.step()
+        return output, loss
+
+
 class BlindTrainer(Trainer):
     def __init__(self, s_net, t_net, config):
         super(BlindTrainer, self).__init__(s_net, config)

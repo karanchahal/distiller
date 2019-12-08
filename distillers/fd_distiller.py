@@ -37,7 +37,7 @@ def set_last_layers(linear, last_channel, as_module=False):
     w_in = last_channel[2]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    modules = [nn.AvgPool2d(pooling), nn.Flatten(), linear]
+    modules = [nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear]
     if as_module:
         return nn.ModuleList(modules)
     return modules
@@ -70,6 +70,11 @@ class Distiller(nn.Module):
             self.s_linear, s_channels[-1], as_module=True)
         self.t_last = set_last_layers(
             self.t_linear, t_channels[-1], as_module=False)
+        self.y_tensors = []
+        for s_channel in s_channels:
+            shape = [s_channel[0] * s_channel[1] * s_channel[2]]
+            y_tensor = torch.zeros(shape).to("cuda")
+            self.y_tensors.append(y_tensor)
 
     def compute_feature_loss(self, s_feats, t_feats):
         feature_loss = 0.0
@@ -96,17 +101,19 @@ class Distiller(nn.Module):
                 s_feat = nn.functional.adaptive_avg_pool1d(s_feat, out_shape)
             s_feat = s_feat.view(s_feat.shape[0], -1)
             t_feat = t_feat.view(t_feat.shape[0], -1)
-            feature_loss += nn.functional.triplet_margin_loss(
-                s_feat, t_feat, s_feat)
+
+            feature_loss += nn.functional.mse_loss(
+                s_feat, t_feat)
         return feature_loss / 10000
 
     def forward(self, x, targets=None, is_loss=False):
-        s_feats, s_outs = get_layers(self.s_feat_layers, x, self.s_last, False)
-        t_feats, t_outs = get_layers(self.t_feat_layers, x, self.t_last, False)
-        feature_loss = 0.0
-        feature_loss += self.compute_feature_loss(s_feats, t_feats)
-        _, s_outs = get_layers(self.s_feat_layers, x, self.s_last)
+        s_feats, s_outs = get_layers(
+             self.s_feat_layers, x, self.s_last, False)
         if is_loss:
+            t_feats, t_outs = get_layers(
+                self.t_feat_layers, x, self.t_last, False)
+            feature_loss = 0.0
+            feature_loss += self.compute_feature_loss(s_feats, t_feats)
             return s_outs[-1], feature_loss
         return s_outs[-1]
 
