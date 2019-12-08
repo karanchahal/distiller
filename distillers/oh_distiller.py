@@ -13,6 +13,12 @@ import torch
 import torch.nn as nn
 from scipy.stats import norm
 from trainer import BaseTrainer
+import util
+
+
+SUPPORTED = ["resnet8", "resnet10", "resnet18", "resnet20",
+             "resnet34", "resnet50", "resnet101", "resnet152",
+             ]
 
 
 def distillation_loss(source, target, margin):
@@ -117,6 +123,11 @@ class OHTrainer(BaseTrainer):
 
 
 def run_oh_distillation(s_net, t_net, **params):
+
+    # check if this technique supports these kinds of models
+    models = [params["student_name"], params["teacher_name"]]
+    if not util.check_support(models, SUPPORTED):
+        return 0.0
 
     # Student training
     # Define loss and the optimizer

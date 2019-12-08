@@ -19,6 +19,14 @@ def dump_json_config(conf_file_name, config):
                   default=lambda o: "<object>")
 
 
+def check_support(models, supported):
+    for model in models:
+        if model not in supported:
+            print(f"Model {model} not supported!")
+            return False
+    return True
+
+
 def setup_torch():
     use_cuda = torch.cuda.is_available()
     device = "cuda" if use_cuda else "cpu"

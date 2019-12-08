@@ -43,12 +43,10 @@ model_dict = {
     "resnet152_v": vision.resnet152,  # params: 58164298
     "wrn50_2": vision.wide_resnet50_2,  # params: 66854730
     "wrn101_2": vision.wide_resnet101_2,  # params: 124858186
-    "mobilenet_v": vision.mobilenet_v2,  # params: 2236682
     "vgg11": cifar10.VGG11,  # params: 9231114
     "vgg13": cifar10.VGG13,  # params: 9416010
     "vgg16": cifar10.VGG16,  # params: 14728266
     "vgg19": cifar10.VGG19,  # params: 20040522
-    "efficientnet": cifar10.EfficientNetB0,  # params: 2912089
 }
 
 

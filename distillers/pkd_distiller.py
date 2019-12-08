@@ -11,6 +11,10 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 from trainer import Trainer
+import util
+
+# this does not work right now...
+SUPPORTED = []
 
 
 class PKDTrainer(Trainer):
@@ -62,6 +66,11 @@ class PKDTrainer(Trainer):
 
 
 def run_pkd_distillation(s_net, t_net, **params):
+
+    # check if this technique supports these kinds of models
+    models = [params["student_name"], params["teacher_name"]]
+    if not util.check_support(models, SUPPORTED):
+        return 0.0
 
     # Student training
     # Define loss and the optimizer

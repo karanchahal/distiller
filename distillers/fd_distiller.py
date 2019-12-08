@@ -108,7 +108,7 @@ class Distiller(nn.Module):
 
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_outs = get_layers(
-             self.s_feat_layers, x, self.s_last, False)
+            self.s_feat_layers, x, self.s_last, False)
         if is_loss:
             t_feats, t_outs = get_layers(
                 self.t_feat_layers, x, self.t_last, False)

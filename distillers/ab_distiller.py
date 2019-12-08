@@ -17,6 +17,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
+import util
 
 from trainer import BaseTrainer, KDTrainer
 
@@ -29,6 +30,10 @@ def alt_L2(source, target, margin):
 
 
 DISTILL_EPOCHS = 10
+SUPPORTED = ["WRN10_4", "WRN16_1", "WRN16_2", "WRN16_4",
+             "WRN16_8", "WRN28_2", "WRN22_4", "WRN22_8",
+             "WRN28_1", "WRN10_1", "WRN40_1", "WRN40_4",
+             ]
 
 
 class Active_Soft_WRN_norelu(nn.Module):
@@ -150,6 +155,12 @@ class DistillTrainer(BaseTrainer):
 
 
 def run_ab_distillation(s_net, t_net, **params):
+
+    # check if this technique supports these kinds of models
+    models = [params["student_name"], params["teacher_name"][:-8]]
+    if not util.check_support(models, SUPPORTED):
+        return 0.0
+
     d_net = Active_Soft_WRN_norelu(t_net, s_net).to(params["device"])
 
     # Distillation (Initialization)

@@ -8,7 +8,7 @@ from torch.utils.data import Dataset
 NUM_WORKERS = 4
 
 # Use a different testset for cifar 10
-USE_CIFAR_10_1 = True
+USE_CIFAR_10_1 = False
 
 
 class TensorImgSet(Dataset):

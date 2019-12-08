@@ -14,9 +14,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from trainer import Trainer
+import util
 
 
 BIG_NUMBER = 1e12
+
+
+SUPPORTED = ["resnet8", "resnet10", "resnet18", "resnet20",
+             "resnet34", "resnet50", "resnet101", "resnet152",
+             ]
 
 
 def pdist(e, squared=False, eps=1e-12):
@@ -361,6 +367,11 @@ class RKDTrainer(Trainer):
 
 
 def run_rkd_distillation(s_net, t_net, **params):
+
+    # check if this technique supports these kinds of models
+    models = [params["student_name"], params["teacher_name"]]
+    if not util.check_support(models, SUPPORTED):
+        return 0.0
 
     # Student training
     print("---------- Training RKD Student -------")

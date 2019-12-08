@@ -99,14 +99,17 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     config = parse_config(data_dir, conf_name)
     modes = config["modes"]
     epochs = config["epochs"]
-    teacher_name = config["teacher_name"]
+    teacher_name = config["teacher_name"] + "_teacher"
     student_name = config["student_name"]
     dfs = {}
     for mode in modes:
         mode = mode.lower()
         mode_path = data_dir.joinpath(mode)
         csv_path = mode_path.joinpath(f"{student_name}_train.csv")
-        dfs[mode] = read_csv(csv_path)
+        try:
+            dfs[mode] = read_csv(csv_path)
+        except FileNotFoundError:
+            print(f"Results for {mode} not found, ignoring...")
     teacher_path = data_dir.joinpath(f"{teacher_name}_val.csv")
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())

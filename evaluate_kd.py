@@ -50,7 +50,7 @@ def setup_teacher(t_name, params):
     num_classes = params["num_classes"]
     t_net = create_cnn_model(t_name, num_classes, params["device"])
     teacher_config = params.copy()
-    teacher_config["test_name"] = params["teacher_name"]
+    teacher_config["test_name"] = params["teacher_name"] + "_teacher"
 
     if params["t_checkpoint"]:
         # Just validate the performance
@@ -258,7 +258,7 @@ def start_evaluation(args):
         "test_loader": test_loader,
         # model configuration
         "device": device,
-        "teacher_name": args.t_name + "_teacher",
+        "teacher_name": args.t_name,
         "student_name": args.s_name,
         "num_classes": num_classes,
         # hyperparameters
