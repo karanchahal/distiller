@@ -76,7 +76,7 @@ def compute_feature_loss(s_feats, t_feats):
     else:
         out_len = s_total.shape[1]
         t_total = t_total[:, :out_len]
-    feature_loss = torch_func.kl_div(s_total, t_total, reduction="batchmean")
+    feature_loss = torch_func.kl_div(s_total, t_total, reduction="mean")
     return feature_loss
 
 
@@ -93,10 +93,6 @@ class Distiller(nn.Module):
         self.t_last = set_last_layers(
             self.t_linear, t_channels[-1], as_module=False)
         self.y_tensors = []
-        for s_channel in s_channels:
-            shape = [s_channel[0] * s_channel[1] * s_channel[2]]
-            y_tensor = torch.zeros(shape).to("cuda")
-            self.y_tensors.append(y_tensor)
 
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_outs = get_layers(x, self.s_feat_layers, self.s_last)
@@ -124,7 +120,7 @@ class FDTrainer(BaseTrainer):
         # Knowledge Distillation Loss
         student_max = torch_func.log_softmax(s_out / T, dim=1)
         teacher_max = torch_func.softmax(t_out / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
+        loss_KD = nn.KLDivLoss(reduction="mean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         return loss
 

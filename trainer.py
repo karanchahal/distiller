@@ -168,7 +168,7 @@ class KDTrainer(Trainer):
         teacher_outputs = self.t_net(data)
         student_max = F.log_softmax(output / T, dim=1)
         teacher_max = F.softmax(teacher_outputs / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
+        loss_KD = nn.KLDivLoss(reduction="mean")(student_max, teacher_max)
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
         loss.backward()
         self.optimizer.step()
