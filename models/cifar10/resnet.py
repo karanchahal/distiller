@@ -104,8 +104,7 @@ class ResNet(nn.Module):
         if use_relu:
             b3 = F.relu(b3)
         b4 = self.layer4(b3)
-        if use_relu:
-            b4 = F.relu(b4)
+        b4 = F.relu(b4)
         pool = F.avg_pool2d(b4, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
@@ -165,8 +164,7 @@ class ResNetSmall(nn.Module):
         if use_relu:
             b2 = F.relu(b2)
         b3 = self.layer3(b2)
-        if use_relu:
-            b3 = F.relu(b3)
+        b3 = F.relu(b3)
         pool = F.avg_pool2d(b3, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
