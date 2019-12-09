@@ -44,9 +44,8 @@ def set_last_layers(linear, last_channel, as_module=False):
     return modules
 
 
-def get_layers(x, layers, classifier=[], use_relu=False):
+def get_layers(x, layers, classifier=[], use_relu=True):
     layer_feats = []
-    outs = []
     out = x
     for layer in layers:
         out = layer(out)
@@ -55,8 +54,8 @@ def get_layers(x, layers, classifier=[], use_relu=False):
         layer_feats.append(out)
     for last in classifier:
         out = last(out)
-        outs.append(out)
-    return layer_feats, outs
+        layer_feats.append(out)
+    return layer_feats[:-2], layer_feats[-1]
 
 
 def compute_feature_loss(s_feats, t_feats):
@@ -64,19 +63,18 @@ def compute_feature_loss(s_feats, t_feats):
     s_totals = []
     t_totals = []
     for s_feat in s_feats:
-        s_totals.append(s_feat.view(s_feat.shape[0], -1))
+        s_totals.append(s_feat.view(s_feat.shape[0], 8, -1))
     for t_feat in t_feats:
-        t_totals.append(t_feat.view(t_feat.shape[0], -1))
-
-    s_total = torch.cat(s_totals, dim=1)
-    t_total = torch.cat(t_totals, dim=1)
-    if s_total.shape[1] > t_total.shape[1]:
-        out_len = t_total.shape[1]
-        s_total = s_total[:, :out_len]
+        t_totals.append(t_feat.view(t_feat.shape[0], 8, -1))
+    s_total = torch.cat(s_totals, dim=2)
+    t_total = torch.cat(t_totals, dim=2)
+    if s_total.shape[2] > t_total.shape[2]:
+        out_len = t_total.shape[2]
+        s_total = torch_func.adaptive_avg_pool1d(s_total, out_len)
     else:
-        out_len = s_total.shape[1]
-        t_total = t_total[:, :out_len]
-    feature_loss = torch_func.kl_div(s_total, t_total, reduction="mean")
+        out_len = s_total.shape[2]
+        t_total = torch_func.adaptive_avg_pool1d(t_total, out_len)
+    feature_loss = torch_func.mse_loss(s_total, t_total)
     return feature_loss
 
 
@@ -92,14 +90,11 @@ class Distiller(nn.Module):
             self.s_linear, s_channels[-1], as_module=True)
         self.t_last = set_last_layers(
             self.t_linear, t_channels[-1], as_module=False)
-        self.y_tensors = []
 
     def forward(self, x, targets=None, is_loss=False):
-        s_feats, s_outs = get_layers(x, self.s_feat_layers, self.s_last)
-        s_out = s_outs[-1]
+        s_feats, s_out = get_layers(x, self.s_feat_layers, self.s_last)
         if is_loss:
-            t_feats, t_outs = get_layers(x, self.t_feat_layers, self.t_last)
-            t_out = t_outs[-1]
+            t_feats, t_out = get_layers(x, self.t_feat_layers, self.t_last)
             feature_loss = 0.0
             feature_loss += compute_feature_loss(s_feats, t_feats)
             return s_out, t_out, feature_loss

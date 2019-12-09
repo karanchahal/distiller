@@ -28,9 +28,13 @@ model_dict = {
     "resnet164_sm": cifar10sm.resnet164,  # params: 1704154
     "resnet1001_sm": cifar10sm.resnet1001,  # params: 10328602
     "resnet8": cifar10.resnet8,  # params: 89322
+    "resnet14": cifar10.resnet10,  # params: 4903242
+    "resnet20": cifar10.resnet10,  # params: 4903242
+    "resnet26": cifar10.resnet10,  # params: 4903242
+    "resnet32": cifar10.resnet10,  # params: 4903242
+    "resnet44": cifar10.resnet10,  # params: 4903242
+    "resnet56": cifar10.resnet18,  # params: 11173962
     "resnet10": cifar10.resnet10,  # params: 4903242
-    "resnet18": cifar10.resnet18,  # params: 11173962
-    "resnet20": cifar10.resnet20,  # params: 11173962
     "resnet34": cifar10.resnet34,  # params: 21282122
     "resnet50": cifar10.resnet50,  # params: 23520842
     "resnet101": cifar10.resnet101,  # params: 42512970
@@ -55,7 +59,8 @@ def create_model(name, num_classes, device):
     model_cls = model_dict[name]
     model = model_cls(num_classes=num_classes)
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"{name} total parameters: {total_params}")
+    layers = len(list(model.modules()))
+    print(f"{name} total parameters: {total_params}, layers {layers}")
     # always use dataparallel for now
     model = torch.nn.DataParallel(model)
     device_count = torch.cuda.device_count()

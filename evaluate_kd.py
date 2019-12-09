@@ -127,7 +127,7 @@ def test_2kd(s_net, t_net1, params):
     return best_kd_acc
 
 
-def test_ta(s_net, t_net, params):
+def test_takd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     num_classes = params["num_classes"]
     # Arguments specifically for the teacher assistant approach
@@ -169,17 +169,19 @@ def test_fd(s_net, t_net, params):
 
 
 def test_allkd(s_name, params):
-    teachers = ["resnet8", "resnet10", "resnet18", "resnet20",
-                "resnet34", "resnet50", "resnet101", "resnet152",
+    teachers = ["resnet8", "resnet14", "resnet20", "resnet26",
+                "resnet32", "resnet44", "resnet56",
+                # "resnet34", "resnet50", "resnet101", "resnet152",
                 ]
     accs = {}
     for t_name in teachers:
         params_t = params.copy()
+        params_t["teacher_name"] = t_name
         t_net, best_teacher, best_t_acc = setup_teacher(t_name, params_t)
         t_net = util.load_checkpoint(t_net, best_teacher, params_t["device"])
         t_net = freeze_teacher(t_net)
         s_net = setup_student(s_name, params_t)
-        params_t["test_name"] = s_name
+        params_t["test_name"] = f"{s_name}_{t_name}"
         params_t["results_dir"] = params_t["results_dir"].joinpath("allkd")
         util.check_dir(params_t["results_dir"])
         best_kd_acc = test_kd(s_net, t_net, params_t)
