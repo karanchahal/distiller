@@ -28,13 +28,14 @@ model_dict = {
     "resnet164_sm": cifar10sm.resnet164,  # params: 1704154
     "resnet1001_sm": cifar10sm.resnet1001,  # params: 10328602
     "resnet8": cifar10.resnet8,  # params: 89322
-    "resnet14": cifar10.resnet10,  # params: 4903242
-    "resnet20": cifar10.resnet10,  # params: 4903242
-    "resnet26": cifar10.resnet10,  # params: 4903242
-    "resnet32": cifar10.resnet10,  # params: 4903242
-    "resnet44": cifar10.resnet10,  # params: 4903242
-    "resnet56": cifar10.resnet18,  # params: 11173962
+    "resnet14": cifar10.resnet14,  # params: 4903242
+    "resnet20": cifar10.resnet20,  # params: 4903242
+    "resnet26": cifar10.resnet26,  # params: 4903242
+    "resnet32": cifar10.resnet32,  # params: 4903242
+    "resnet44": cifar10.resnet44,  # params: 4903242
+    "resnet56": cifar10.resnet56,  # params: 11173962
     "resnet10": cifar10.resnet10,  # params: 4903242
+    "resnet18": cifar10.resnet18,  # params: 4903242
     "resnet34": cifar10.resnet34,  # params: 21282122
     "resnet50": cifar10.resnet50,  # params: 23520842
     "resnet101": cifar10.resnet101,  # params: 42512970
