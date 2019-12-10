@@ -10,7 +10,7 @@ import util
 
 BATCH_SIZE = 128
 TESTFOLDER = "results"
-USE_ID = False
+USE_ID = True
 
 
 def parse_arguments():
@@ -69,7 +69,7 @@ def setup_teacher(t_name, params):
     best_t_acc = teacher_trainer.validate()
 
     # also save this information in a csv file for plotting
-    name = params["teacher_name"] + "_val"
+    name = teacher_config["test_name"] + "_val"
     acc_file_name = params["results_dir"].joinpath(f"{name}.csv")
     with acc_file_name.open("w+") as acc_file:
         acc_file.write("Training Loss,Validation Loss\n")
@@ -131,7 +131,7 @@ def test_takd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     num_classes = params["num_classes"]
     # Arguments specifically for the teacher assistant approach
-    params["ta_name"] = "resnet8"
+    params["ta_name"] = "resnet20"
     ta_model = create_model(
         params["ta_name"], num_classes, params["device"])
     best_ta_acc = run_takd_distillation(s_net, ta_model, t_net, **params)
@@ -198,6 +198,35 @@ def test_allkd(s_name, params):
         print(f"Best results for {s_name}: {acc[1]}")
 
     return best_t_acc, best_allkd_acc
+
+
+def test_kdparam(s_net, t_net, params):
+    temps = [1, 5, 10, 15, 20]
+    alphas = [0.1, 0.4, 0.5, 0.7, 1.0]
+    param_pairs = [(a, T) for T in temps for a in alphas]
+    accs = {}
+
+    for alpha, T, in param_pairs:
+        params_s = params.copy()
+        params_s["lambda_student"] = alpha
+        params_s["T_student"]: T
+        s_name = params_s["student_name"]
+        s_net = setup_student(s_name, params_s)
+        params_s["test_name"] = f"{s_name}_{T}_{alpha}"
+        print(f"Testing {s_name} with alpha {alpha} and T {T}.")
+        best_kd_acc = test_kd(s_net, t_net, params_s)
+        accs[params_s["test_name"]] = (alpha, T, best_kd_acc)
+
+    best_kdparam_acc = 0
+    for test_name, acc in accs.items():
+        alpha = acc[0]
+        T = acc[1]
+        kd_acc = acc[2]
+        if acc[2] > best_kdparam_acc:
+            best_kdparam_acc = acc[2]
+        print(f"Best results for {s_name} with a {alpha} and T {T}: {kd_acc}")
+
+    return best_kdparam_acc
 
 
 def run_benchmarks(modes, params, s_name, t_name):
@@ -270,7 +299,7 @@ def start_evaluation(args):
         "sched": "multisteplr",
         "optim": "SGD",
         # fixed knowledge distillation parameters
-        "lambda_student": 0.5,
+        "lambda_student": 0.4,
         "T_student": 10,
     }
     test_conf_name = results_dir.joinpath("test_config.json")
