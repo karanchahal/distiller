@@ -44,7 +44,7 @@ def set_last_layers(linear, last_channel, as_module=False):
     return modules
 
 
-def get_layers(x, layers, classifier=[], use_relu=True):
+def get_layers(x, layers, classifier=[], use_relu=False):
     layer_feats = []
     out = x
     for layer in layers:
@@ -74,6 +74,8 @@ def compute_feature_loss(s_feats, t_feats):
     else:
         out_len = s_total.shape[2]
         t_total = torch_func.adaptive_avg_pool1d(t_total, out_len)
+    s_total = torch_func.instance_norm(s_total)
+    t_total = torch_func.instance_norm(t_total)
     feature_loss = torch_func.mse_loss(s_total, t_total)
     return feature_loss
 
@@ -120,10 +122,11 @@ class FDTrainer(BaseTrainer):
         return loss
 
     def calculate_loss(self, data, targets):
+        lambda_ = self.config["lambda_student"]
         s_out, t_out, feature_loss = self.net(data, targets, is_loss=True)
         loss = 0.0
-        loss += feature_loss
-        loss += self.loss_fun(s_out, targets)
+        loss += lambda_ * feature_loss
+        loss += (1 - lambda_) * self.loss_fun(s_out, targets)
         # loss += self.distill_loss(s_out, t_out, targets)
         loss.backward()
         self.optimizer.step()

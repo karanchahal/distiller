@@ -53,28 +53,28 @@ class NetworkBlock(nn.Module):
 class WideResNet(nn.Module):
     def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.0):
         super(WideResNet, self).__init__()
-        nChannels = [16, 16 * widen_factor,
-                     32 * widen_factor, 64 * widen_factor]
+        n_channels = [16, 16 * widen_factor,
+                      32 * widen_factor, 64 * widen_factor]
         assert((depth - 4) % 6 == 0)
         n = (depth - 4) / 6
         block = BasicBlock
         # 1st conv before any network block
-        self.conv1 = nn.Conv2d(3, nChannels[0], kernel_size=3, stride=1,
+        self.conv1 = nn.Conv2d(3, n_channels[0], kernel_size=3, stride=1,
                                padding=1, bias=False)
         # 1st block
-        self.block1 = NetworkBlock(
-            n, nChannels[0], nChannels[1], block, 1, dropRate)
+        self.layer1 = NetworkBlock(
+            n, n_channels[0], n_channels[1], block, 1, dropRate)
         # 2nd block
-        self.block2 = NetworkBlock(
-            n, nChannels[1], nChannels[2], block, 2, dropRate)
+        self.layer2 = NetworkBlock(
+            n, n_channels[1], n_channels[2], block, 2, dropRate)
         # 3rd block
-        self.block3 = NetworkBlock(
-            n, nChannels[2], nChannels[3], block, 2, dropRate)
+        self.layer3 = NetworkBlock(
+            n, n_channels[2], n_channels[3], block, 2, dropRate)
         # global average pooling and classifier
-        self.bn1 = nn.BatchNorm2d(nChannels[3])
+        self.bn1 = nn.BatchNorm2d(n_channels[3])
         self.relu = nn.ReLU(inplace=True)
-        self.fc = nn.Linear(nChannels[3], num_classes)
-        self.nChannels = nChannels[3]
+        self.linear = nn.Linear(n_channels[3], num_classes)
+        self.n_channels = n_channels
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -88,13 +88,16 @@ class WideResNet(nn.Module):
 
     def forward(self, x):
         out = self.conv1(x)
-        out = self.block1(out)
-        out = self.block2(out)
-        out = self.block3(out)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.nChannels)
-        return self.fc(out)
+        out = out.view(-1, self.n_channels[-1])
+        return self.linear(out)
+
+    def get_channel_num(self):
+        return self.n_channels
 
 
 def WRN10_4(num_classes=10):

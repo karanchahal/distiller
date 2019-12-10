@@ -34,9 +34,8 @@ def get_scheduler(sched_str, params):
         return optim.lr_scheduler.StepLR, sched_args
     elif sched_str.lower() == "multisteplr":
         decay_steps = [
-            int(0.25 * params["epochs"]),
-            int(0.6 * params["epochs"]),
-            int(0.85 * params["epochs"]),
+            int(0.33 * params["epochs"]),
+            int(0.66 * params["epochs"]),
         ]
         print("Decreasing learning rates at epoch ", end="")
         for epoch in decay_steps:

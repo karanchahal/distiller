@@ -1,9 +1,9 @@
+from collections import OrderedDict
 import random
 import string
 import json
 import os
 import torch
-from collections import OrderedDict
 
 
 def generate_id():
@@ -20,8 +20,10 @@ def dump_json_config(conf_file_name, config):
 
 
 def check_support(models, supported):
+    supported = [sup.lower() for sup in supported]
     for model in models:
-        if model not in supported:
+        print(f"Checking support of {model}")
+        if model.lower() not in supported:
             print(f"Model {model} not supported!")
             return False
     return True

@@ -36,6 +36,14 @@ SUPPORTED = ["WRN10_4", "WRN16_1", "WRN16_2", "WRN16_4",
              ]
 
 
+def get_feat_layers(net):
+    layers = []
+    for layer in list(net.children()):
+        if not isinstance(layer, nn.Linear):
+            layers.append(layer)
+    return layers
+
+
 class Active_Soft_WRN_norelu(nn.Module):
     def __init__(self, t_net, s_net):
 
@@ -46,19 +54,30 @@ class Active_Soft_WRN_norelu(nn.Module):
             t_net = t_net.module
         if isinstance(s_net, nn.DataParallel):
             s_net = s_net.module
-
+        self.n_channels_s = s_net.get_channel_num()
+        self.n_channels_t = t_net.get_channel_num()
+        fc_channel_s = self.n_channels_s[-1]
+        fc_channel_t = self.n_channels_t[-1]
+        bns_s = []
+        bns_t = []
+        for idx, channel in enumerate(self.n_channels_s):
+            bns_s.append(nn.BatchNorm2d(channel))
+        for idx, channel in enumerate(self.n_channels_t):
+            bns_t.append(nn.BatchNorm2d(channel))
+        self.bns_s = nn.ModuleList(bns_s)
+        self.bns_t = nn.ModuleList(bns_t)
         # Connection layers
-        if t_net.nChannels == s_net.nChannels:
+        if fc_channel_t == fc_channel_s:
             C1 = []
             C2 = []
             C3 = []
         else:
-            C1 = [nn.Conv2d(int(s_net.nChannels / 4), int(t_net.nChannels / 4), kernel_size=1, stride=1, padding=0, bias=False),
-                  nn.BatchNorm2d(int(t_net.nChannels / 4))]
-            C2 = [nn.Conv2d(int(s_net.nChannels / 2), int(t_net.nChannels / 2), kernel_size=1, stride=1, padding=0, bias=False),
-                  nn.BatchNorm2d(int(t_net.nChannels / 2))]
-            C3 = [nn.Conv2d(s_net.nChannels, t_net.nChannels, kernel_size=1, stride=1, padding=0, bias=False),
-                  nn.BatchNorm2d(t_net.nChannels)]
+            C1 = [nn.Conv2d(int(fc_channel_s / 4), int(fc_channel_t / 4), kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(int(fc_channel_t / 4))]
+            C2 = [nn.Conv2d(int(fc_channel_s / 2), int(fc_channel_t / 2), kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(int(fc_channel_t / 2))]
+            C3 = [nn.Conv2d(fc_channel_s, fc_channel_t, kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(fc_channel_t)]
 
         # Weight initialize
         for m in C1 + C2 + C3:
@@ -77,43 +96,52 @@ class Active_Soft_WRN_norelu(nn.Module):
 
         self.t_net = t_net
         self.s_net = s_net
+        self.res0_t = None
+        self.res1_t = None
+        self.res2_t = None
+
+        self.res0 = None
+        self.res1 = None
+        self.res2 = None
+        self.res3 = None
 
     def forward(self, x):
         # For teacher network
-        self.res0_t = self.t_net.conv1(x)
+        res0_t = self.t_net.conv1(x)
 
-        self.res1_t = self.t_net.block1(self.res0_t)
-        self.res2_t = self.t_net.block2(self.res1_t)
-        self.res3_t = self.t_net.bn1(self.t_net.block3(self.res2_t))
+        res1_t = self.t_net.layer1(res0_t)
+        res2_t = self.t_net.layer2(res1_t)
+        res3_t = self.t_net.layer3(res2_t)
+        res3_t = self.bns_t[3](res3_t)
 
-        out = self.t_net.relu(self.res3_t)
+        out = self.t_net.relu(res3_t)
         out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.t_net.nChannels)
-        self.out_t = self.t_net.fc(out)
+        out = out.view(-1, self.n_channels_t[-1])
 
         # For student network
-        self.res0 = self.s_net.conv1(x)
+        res0 = self.s_net.conv1(x)
 
-        self.res1 = self.s_net.block1(self.res0)
-        self.res2 = self.s_net.block2(self.res1)
-        self.res3 = self.s_net.block3(self.res2)
+        res1 = self.s_net.layer1(res0)
+        res2 = self.s_net.layer2(res1)
+        res3 = self.s_net.layer3(res2)
+        res3 = self.bns_s[3](res3)
 
-        out = self.s_net.relu(self.s_net.bn1(self.res3))
+        out = self.s_net.relu(res3)
         out = F.avg_pool2d(out, 8)
-        out = out.view(-1, self.s_net.nChannels)
-        self.out_s = self.s_net.fc(out)
+        out = out.view(-1, self.n_channels_s[-1])
+        out_s = self.s_net.linear(out)
 
         # Features before ReLU
-        self.res0_t = self.t_net.block1.layer[0].bn1(self.res0_t)
-        self.res1_t = self.t_net.block2.layer[0].bn1(self.res1_t)
-        self.res2_t = self.t_net.block3.layer[0].bn1(self.res2_t)
+        self.res0_t = self.t_net.layer1.layer[0].bn1(res0_t)
+        self.res1_t = self.t_net.layer2.layer[0].bn1(res1_t)
+        self.res2_t = self.t_net.layer3.layer[0].bn1(res2_t)
 
-        self.res0 = self.s_net.block1.layer[0].bn1(self.res0)
-        self.res1 = self.s_net.block2.layer[0].bn1(self.res1)
-        self.res2 = self.s_net.block3.layer[0].bn1(self.res2)
-        self.res3 = self.s_net.bn1(self.res3)
+        self.res0 = self.s_net.layer1.layer[0].bn1(res0)
+        self.res1 = self.s_net.layer2.layer[0].bn1(res1)
+        self.res2 = self.s_net.layer3.layer[0].bn1(res2)
+        self.res3 = self.bns_s[3](self.res3)
 
-        return self.out_s
+        return out_s
 
 
 class DistillTrainer(BaseTrainer):
@@ -157,7 +185,7 @@ class DistillTrainer(BaseTrainer):
 def run_ab_distillation(s_net, t_net, **params):
 
     # check if this technique supports these kinds of models
-    models = [params["student_name"], params["teacher_name"][:-8]]
+    models = [params["student_name"], params["teacher_name"]]
     if not util.check_support(models, SUPPORTED):
         return 0.0
 

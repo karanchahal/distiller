@@ -83,6 +83,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.linear = nn.Linear(512 * block.expansion, num_classes)
+        self.n_channels = [64, 128, 256, 512, 512 * block.expansion]
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -130,8 +131,8 @@ class ResNet(nn.Module):
 
         return [bn1, bn2, bn3, bn4]
 
-    def get_channel_num(cls):
-        return [64, 128, 256, 512]
+    def get_channel_num(self):
+        return self.n_channels
 
 
 class ResNetSmall(nn.Module):
@@ -146,6 +147,7 @@ class ResNetSmall(nn.Module):
         self.layer2 = self._make_layer(block, 32, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
         self.linear = nn.Linear(256 * block.expansion, num_classes)
+        self.n_channels = [16, 32, 64, 256 * block.expansion]
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -188,8 +190,8 @@ class ResNetSmall(nn.Module):
 
         return [bn1, bn2, bn3]
 
-    def get_channel_num(cls):
-        return [16, 32, 64]
+    def get_channel_num(self):
+        return self.n_channels
 
 
 def resnet8(**kwargs):

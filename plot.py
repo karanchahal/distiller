@@ -114,8 +114,8 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     sns.lineplot(data=df, palette="tab10", style="event", dashes=DASH_STYLES)
-    util.check_dir(plot_dir)
     plot_dir = Path(plot_dir).joinpath(test_id)
+    util.check_dir(plot_dir)
     plt_name = f"{epochs}_epochs_{teacher_name}_to_{student_name}"
     plt_name = Path(plot_dir).joinpath(plt_name)
     plt.savefig(f"{plt_name}.pdf", bbox_inches='tight', pad_inches=0.05)
