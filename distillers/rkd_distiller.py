@@ -13,16 +13,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from trainer import Trainer
+from trainer import KDTrainer
 import util
 
 
 BIG_NUMBER = 1e12
 
 
-SUPPORTED = ["resnet8", "resnet10", "resnet18", "resnet20",
-             "resnet34", "resnet50", "resnet101", "resnet152",
-             ]
+SUPPORTED = ["resnet8", "resnet14", "resnet20", "resnet26",
+             "resnet32", "resnet44", "resnet56", "resnet10",
+             "resnet18", "resnet34", "resnet50", "resnet101",
+             "resnet152", ]
 
 
 def pdist(e, squared=False, eps=1e-12):
@@ -309,9 +310,9 @@ class DistanceWeighted(_Sampler):
         return anchor_idx, pos_idx, neg_idx
 
 
-class RKDTrainer(Trainer):
+class RKDTrainer(KDTrainer):
     def __init__(self, s_net, t_net, config):
-        super(RKDTrainer, self).__init__(s_net, config)
+        super(RKDTrainer, self).__init__(s_net, t_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
@@ -336,20 +337,11 @@ class RKDTrainer(Trainer):
         self.at_criterion = AttentionTransfer()
 
     def calculate_loss(self, data, target):
-        lambda_ = self.config["lambda_student"]
-        T = self.config["T_student"]
         t_feats, t_pool, t_out = self.t_net(data, is_feat=True)
         s_feats, s_pool, s_out = self.s_net(data, is_feat=True)
 
-        # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(s_out, target)
-
-        # Knowledge Distillation Loss
         teacher_outputs = self.t_net(data)
-        student_max = F.log_softmax(s_out / T, dim=1)
-        teacher_max = F.softmax(teacher_outputs / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
+        loss = self.kd_loss(s_out, teacher_outputs, target)
 
         at_loss = 0
         # technically we should use every layer expect the first here

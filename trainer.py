@@ -157,22 +157,26 @@ class KDTrainer(Trainer):
         self.s_net = self.net
         self.t_net = t_net
 
-    def calculate_loss(self, data, target):
+    def kd_loss(self, out_s, out_t, target):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        output = self.s_net(data)
         # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(output, target)
-
+        loss = self.loss_fun(out_s, target)
         # Knowledge Distillation Loss
-        teacher_outputs = self.t_net(data)
-        student_max = F.log_softmax(output / T, dim=1)
-        teacher_max = F.softmax(teacher_outputs / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="mean")(student_max, teacher_max)
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
+        batch_size = target.shape[0]
+        s_max = F.log_softmax(out_s / T, dim=1)
+        t_max = F.softmax(out_t / T, dim=1)
+        loss_kd = F.kl_div(s_max, t_max, size_average=False) / batch_size
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
+        return loss
+
+    def calculate_loss(self, data, target):
+        out_s = self.s_net(data)
+        out_t = self.t_net(data)
+        loss = self.kd_loss(out_s, out_t, target)
         loss.backward()
         self.optimizer.step()
-        return output, loss
+        return out_s, loss
 
 
 class DualTrainer(Trainer):
@@ -184,27 +188,19 @@ class DualTrainer(Trainer):
         self.t_net2 = t_net2
 
     def calculate_loss(self, data, target):
-        lambda_ = self.config["lambda_student"]
-        T = self.config["T_student"]
-        output = self.s_net(data)
+        out_s = self.s_net(data)
         # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(output, target)
+        loss = self.loss_fun(out_s, target)
 
         # Knowledge Distillation Loss
-        teacher_outputs1 = self.t_net1(data)
-        teacher_outputs2 = self.t_net2(data)
-        student_max = F.log_softmax(output / T, dim=1)
-        teacher_max1 = F.softmax(teacher_outputs1 / T, dim=1)
-        teacher_max2 = F.softmax(teacher_outputs2 / T, dim=1)
-        loss_KD = 0.0
-        loss_KD += nn.KLDivLoss(reduction="batchmean")(student_max,
-                                                       teacher_max1)
-        loss_KD += nn.KLDivLoss(reduction="batchmean")(student_max,
-                                                       teacher_max2)
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
+        out_t1 = self.t_net1(data)
+        out_t2 = self.t_net2(data)
+        loss = self.kd_loss(out_s, out_t1, target)
+        loss += self.kd_loss(out_s, out_t2, target)
+
         loss.backward()
         self.optimizer.step()
-        return output, loss
+        return out_s, loss
 
 
 class BlindTrainer(Trainer):
@@ -217,17 +213,18 @@ class BlindTrainer(Trainer):
     def calculate_loss(self, data):
         lambda_ = self.config["lambda_student"]
         T = self.config["T_student"]
-        output = self.s_net(data)
+        out_s = self.s_net(data)
 
         # Knowledge Distillation Loss
-        teacher_outputs = self.t_net(data)
-        student_max = F.log_softmax(output / T, dim=1)
-        teacher_max = F.softmax(teacher_outputs / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
-        loss = lambda_ * T * T * loss_KD
+        out_t = self.t_net(data)
+        s_max = F.log_softmax(out_s / T, dim=1)
+        t_max = F.softmax(out_t / T, dim=1)
+        batch_size = s_max.shape[0]
+        loss_kd = F.kl_div(s_max, t_max, size_average=False) / batch_size
+        loss = lambda_ * T * T * loss_kd
         loss.backward()
         self.optimizer.step()
-        return output, loss
+        return out_s, loss
 
     def train_single_epoch(self, t_bar):
         self.net.train()

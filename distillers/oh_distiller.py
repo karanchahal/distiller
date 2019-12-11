@@ -16,9 +16,10 @@ from trainer import BaseTrainer
 import util
 
 
-SUPPORTED = ["resnet8", "resnet10", "resnet18", "resnet20",
-             "resnet34", "resnet50", "resnet101", "resnet152",
-             ]
+SUPPORTED = ["resnet8", "resnet14", "resnet20", "resnet26",
+             "resnet32", "resnet44", "resnet56", "resnet10",
+             "resnet18", "resnet34", "resnet50", "resnet101",
+             "resnet152", ]
 
 
 def distillation_loss(source, target, margin):

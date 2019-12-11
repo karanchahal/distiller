@@ -8,21 +8,17 @@
 # }
 
 import torch.nn.functional as F
-import torch.nn as nn
 import torch
-from trainer import Trainer
+from trainer import KDTrainer
 import util
 
-# this does not work right now...
-SUPPORTED = []
+SUPPORTED = ["resnet8", "resnet14", "resnet20", "resnet26",
+             "resnet32", "resnet44", "resnet56", "resnet10",
+             "resnet18", "resnet34", "resnet50", "resnet101",
+             "resnet152", ]
 
 
-class PKDTrainer(Trainer):
-    def __init__(self, s_net, t_net, train_config):
-        super(PKDTrainer, self).__init__(s_net, train_config)
-        # the student net is the base net
-        self.s_net = self.net
-        self.t_net = t_net
+class PKDTrainer(KDTrainer):
 
     def patience_loss(self, teacher_patience, student_patience,
                       normalized_patience=False):
@@ -31,19 +27,6 @@ class PKDTrainer(Trainer):
             teacher_patience = F.normalize(teacher_patience, p=2, dim=2)
             student_patience = F.normalize(student_patience, p=2, dim=2)
         return F.mse_loss(teacher_patience.float(), student_patience.float())
-
-    def distill_loss(self, pool_s, pool_t, target):
-        lambda_ = self.config["lambda_student"]
-        T = self.config["T_student"]
-        # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(pool_s, target)
-
-        # Knowledge Distillation Loss
-        student_max = F.log_softmax(pool_s / T, dim=1)
-        teacher_max = F.softmax(pool_t / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="batchmean")(student_max, teacher_max)
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
-        return loss
 
     def calculate_loss(self, data, target):
         beta = 10
@@ -54,7 +37,7 @@ class PKDTrainer(Trainer):
         student_patience = torch.cat(s_feats, dim=1)
         teacher_patience = torch.cat(t_feats, dim=1)
 
-        loss_KD = self.distill_loss(s_out, t_out, target)
+        loss_KD = self.kd_loss(s_out, t_out, target)
 
         pt_loss = beta * \
             self.patience_loss(teacher_patience, student_patience)
@@ -75,7 +58,7 @@ def run_pkd_distillation(s_net, t_net, **params):
     # Student training
     # Define loss and the optimizer
     print("---------- Training PKD Student -------")
-    s_trainer = PKDTrainer(s_net, t_net=t_net, train_config=params)
+    s_trainer = PKDTrainer(s_net, t_net=t_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc
