@@ -58,7 +58,7 @@ def get_layers(x, layers, classifier=[], use_relu=False):
     return layer_feats[:-2], layer_feats[-1]
 
 
-def compute_feature_loss(s_feats, t_feats):
+def compute_feature_loss(s_feats, t_feats, batch_size):
     feature_loss = 0.0
     s_totals = []
     t_totals = []
@@ -70,13 +70,11 @@ def compute_feature_loss(s_feats, t_feats):
     t_total = torch.cat(t_totals, dim=2)
     if s_total.shape[2] > t_total.shape[2]:
         out_len = t_total.shape[2]
-        s_total = torch_func.adaptive_avg_pool1d(s_total, out_len)
+        s_total = torch_func.adaptive_max_pool1d(s_total, out_len)
     else:
         out_len = s_total.shape[2]
-        t_total = torch_func.adaptive_avg_pool1d(t_total, out_len)
-    s_total = torch_func.instance_norm(s_total)
-    t_total = torch_func.instance_norm(t_total)
-    feature_loss = torch_func.mse_loss(s_total, t_total)
+        t_total = torch_func.adaptive_max_pool1d(t_total, out_len)
+    feature_loss = torch_func.mse_loss(s_total, t_total) / batch_size
     return feature_loss
 
 
@@ -96,9 +94,10 @@ class Distiller(nn.Module):
     def forward(self, x, targets=None, is_loss=False):
         s_feats, s_out = get_layers(x, self.s_feat_layers, self.s_last)
         if is_loss:
+            batch_size = s_out.shape[0]
             t_feats, t_out = get_layers(x, self.t_feat_layers, self.t_last)
             feature_loss = 0.0
-            feature_loss += compute_feature_loss(s_feats, t_feats)
+            feature_loss += compute_feature_loss(s_feats, t_feats, batch_size)
             return s_out, t_out, feature_loss
         return s_out
 

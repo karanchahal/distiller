@@ -242,7 +242,6 @@ def run_benchmarks(modes, params, s_name, t_name):
     for mode in modes:
         mode = mode.lower()
         params_s = params.copy()
-        params_s["weight_decay"] = 0.0
         # reset the teacher
         t_net = util.load_checkpoint(t_net, best_teacher, params["device"])
 

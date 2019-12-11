@@ -19,7 +19,7 @@ def get_optimizer(optim_str, params):
     elif optim_str.lower() == "adabound":
         optim_args["weight_decay"] = params["weight_decay"]
         optim_args["amsbound"] = True
-        optim_args["final_lr"] = 0.0001
+        optim_args["final_lr"] = 0.1
         return AdaBound, optim_args
     else:
         print("Requested optimizer not supported!")
