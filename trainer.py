@@ -34,7 +34,7 @@ class Trainer():
         sched_cls, sched_args = get_scheduler(config["sched"], config)
         self.optimizer = optim_cls(net.parameters(), **optim_args)
         self.scheduler = sched_cls(self.optimizer, **sched_args)
-        self.loss_fun = nn.CrossEntropyLoss()
+        self.loss_fun = F.cross_entropy
         self.train_loader = config["train_loader"]
         self.test_loader = config["test_loader"]
         self.batch_size = self.train_loader.batch_size
@@ -96,7 +96,7 @@ class Trainer():
             # perform training
             train_acc = self.train_single_epoch(t_bar)
             # validate the output and save if it is the best so far
-            val_acc = self.validate()
+            val_acc = self.validate(epoch)
             if val_acc > best_acc:
                 best_acc = val_acc
                 self.save(epoch, name=self.best_model_file)
@@ -109,7 +109,7 @@ class Trainer():
         self.acc_file.close()
         return best_acc
 
-    def validate(self):
+    def validate(self, epoch=0):
         self.net.eval()
         acc = 0.0
         with torch.no_grad():
@@ -126,7 +126,7 @@ class Trainer():
                 correct += pred.eq(labels.data.view_as(pred)).cpu().sum()
 
             acc = float(correct) / len(self.test_loader.dataset)
-            print(f"\nValidation set: Average loss: {loss:.4f}, "
+            print(f"\nEpoch {epoch}: Validation set: Average loss: {loss:.4f}, "
                   f"Accuracy: {correct}/{len(self.test_loader.dataset)} "
                   f"({acc * 100.0:.3f}%)")
         return acc

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as torch_func
-from trainer import BaseTrainer
+from trainer import KDTrainer
 
 
 def get_layer_types(feat_layers):
@@ -25,7 +25,7 @@ def get_net_info(net, as_module=False):
     x = torch.Tensor(*x).to(device)
     for layer in feat_layers:
         x = layer(x)
-        channels.append(x.shape[1:])
+        channels.append(x.shape)
     if as_module:
         return nn.ModuleList(feat_layers), linear, channels
     return feat_layers, linear, channels
@@ -33,18 +33,27 @@ def get_net_info(net, as_module=False):
 
 def set_last_layers(linear, last_channel, as_module=False):
     # assume that h_in and w_in are equal...
-    c_in = last_channel[0]
-    h_in = last_channel[1]
-    w_in = last_channel[2]
+    c_in = last_channel[1]
+    h_in = last_channel[2]
+    w_in = last_channel[3]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    modules = [nn.ReLU(), nn.AvgPool2d(pooling), nn.Flatten(), linear]
+    modules = [nn.AvgPool2d((pooling)), nn.Flatten(), linear]
     if as_module:
         return nn.ModuleList(modules)
     return modules
 
 
-def get_layers(x, layers, classifier=[], use_relu=False):
+def build_transformers(s_channels, t_channels):
+    transfomers = []
+    for idx, s_channel in enumerate(s_channels):
+        t_channel = t_channels[idx]
+        transformer = nn.Conv2d(s_channel[1], t_channel[1], kernel_size=1)
+        transfomers.append(transformer)
+    return nn.ModuleList(transfomers)
+
+
+def get_layers(x, layers, classifier=[], use_relu=True):
     layer_feats = []
     out = x
     for layer in layers:
@@ -55,7 +64,7 @@ def get_layers(x, layers, classifier=[], use_relu=False):
     for last in classifier:
         out = last(out)
         layer_feats.append(out)
-    return layer_feats[:-2], layer_feats[-1]
+    return layer_feats[0], layer_feats[-1]
 
 
 def compute_feature_loss(s_feats, t_feats, batch_size):
@@ -63,18 +72,14 @@ def compute_feature_loss(s_feats, t_feats, batch_size):
     s_totals = []
     t_totals = []
     for s_feat in s_feats:
-        s_totals.append(s_feat.view(s_feat.shape[0], 8, -1))
+        s_feat = torch_func.adaptive_max_pool2d(s_feat, (1, 1))
+        s_totals.append(s_feat)
     for t_feat in t_feats:
-        t_totals.append(t_feat.view(t_feat.shape[0], 8, -1))
-    s_total = torch.cat(s_totals, dim=2)
-    t_total = torch.cat(t_totals, dim=2)
-    if s_total.shape[2] > t_total.shape[2]:
-        out_len = t_total.shape[2]
-        s_total = torch_func.adaptive_max_pool1d(s_total, out_len)
-    else:
-        out_len = s_total.shape[2]
-        t_total = torch_func.adaptive_max_pool1d(t_total, out_len)
-    feature_loss = torch_func.mse_loss(s_total, t_total) / batch_size
+        t_feat = torch_func.adaptive_max_pool2d(t_feat, (1, 1))
+        t_totals.append(t_feat)
+    s_total = torch.cat(s_totals, dim=1)
+    t_total = torch.cat(t_totals, dim=1)
+    feature_loss = torch_func.mse_loss(s_total, t_total)
     return feature_loss
 
 
@@ -102,31 +107,14 @@ class Distiller(nn.Module):
         return s_out
 
 
-class FDTrainer(BaseTrainer):
-    def __init__(self, s_net, t_net, config):
-        super(FDTrainer, self).__init__(s_net, config)
-        self.t_net = t_net
+class FDTrainer(KDTrainer):
 
-    def distill_loss(self, s_out, t_out, targets):
-        lambda_ = self.config["lambda_student"]
-        T = self.config["T_student"]
-        # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(s_out, targets)
-
-        # Knowledge Distillation Loss
-        student_max = torch_func.log_softmax(s_out / T, dim=1)
-        teacher_max = torch_func.softmax(t_out / T, dim=1)
-        loss_KD = nn.KLDivLoss(reduction="mean")(student_max, teacher_max)
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_KD
-        return loss
-
-    def calculate_loss(self, data, targets):
-        lambda_ = self.config["lambda_student"]
-        s_out, t_out, feature_loss = self.net(data, targets, is_loss=True)
+    def calculate_loss(self, data, target):
+        s_out, t_out, feature_loss = self.net(data, target, is_loss=True)
         loss = 0.0
-        loss += lambda_ * feature_loss
-        loss += (1 - lambda_) * self.loss_fun(s_out, targets)
-        # loss += self.distill_loss(s_out, t_out, targets)
+        # loss += self.loss_fun(s_out, target)
+        loss += self.kd_loss(s_out, t_out, target)
+        loss += feature_loss
         loss.backward()
         self.optimizer.step()
         return s_out, loss
