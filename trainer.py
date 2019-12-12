@@ -248,7 +248,7 @@ class TripletTrainer(Trainer):
 
 class DualTrainer(KDTrainer):
     def __init__(self, s_net, t_net1, t_net2, config):
-        super(DualTrainer, self).__init__(s_net, config)
+        super(DualTrainer, self).__init__(s_net, t_net1, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net1 = t_net1

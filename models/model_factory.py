@@ -40,6 +40,9 @@ model_dict = {
     "resnet50": cifar10.resnet50,  # params: 23520842
     "resnet101": cifar10.resnet101,  # params: 42512970
     "resnet152": cifar10.resnet152,  # params: 58156618
+    "resnet8_v": vision.resnet8,  # params: 4910922
+    "resnet14_v": vision.resnet14,  # params: 4910922
+    "resnet20_v": vision.resnet20,  # params: 4910922
     "resnet10_v": vision.resnet10,  # params: 4910922
     "resnet18_v": vision.resnet18,  # params: 11181642
     "resnet34_v": vision.resnet34,  # params: 21289802

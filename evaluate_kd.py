@@ -128,7 +128,7 @@ def test_2kd(s_net, t_net1, params):
     t_net2 = create_model(
         params["t2_name"], params["num_classes"], params["device"])
     t_net2 = util.load_checkpoint(
-        t_net2, "pretrained/WRN_22_4_cifar10_95510_parallel.pth")
+        t_net2, "pretrained/WRN22_4_cifar10.pth")
     t_net2 = freeze_teacher(t_net2)
     kd_trainer = DualTrainer(s_net, t_net1=t_net1,
                              t_net2=t_net2, config=kd_config)
@@ -307,8 +307,8 @@ def start_evaluation(args):
         "sched": "multisteplr",
         "optim": "SGD",
         # fixed knowledge distillation parameters
-        "lambda_student": 0.4,
-        "T_student": 10,
+        "lambda_student": 0.5,
+        "T_student": 5,
     }
     test_conf_name = results_dir.joinpath("test_config.json")
     util.dump_json_config(test_conf_name, params)
