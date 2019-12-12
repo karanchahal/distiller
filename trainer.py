@@ -34,7 +34,7 @@ class Trainer():
         sched_cls, sched_args = get_scheduler(config["sched"], config)
         self.optimizer = optim_cls(net.parameters(), **optim_args)
         self.scheduler = sched_cls(self.optimizer, **sched_args)
-        self.loss_fun = F.cross_entropy
+        self.loss_fun = nn.CrossEntropyLoss()
         self.train_loader = config["train_loader"]
         self.test_loader = config["test_loader"]
         self.batch_size = self.train_loader.batch_size
@@ -156,6 +156,7 @@ class KDTrainer(Trainer):
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
+        self.kd_fun = nn.KLDivLoss(size_average=False)
 
     def kd_loss(self, out_s, out_t, target):
         lambda_ = self.config["lambda_student"]
@@ -166,7 +167,7 @@ class KDTrainer(Trainer):
         batch_size = target.shape[0]
         s_max = F.log_softmax(out_s / T, dim=1)
         t_max = F.softmax(out_t / T, dim=1)
-        loss_kd = F.kl_div(s_max, t_max, size_average=False) / batch_size
+        loss_kd = self.kd_fun(s_max, t_max) / batch_size
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
         return loss
 
@@ -179,7 +180,73 @@ class KDTrainer(Trainer):
         return out_s, loss
 
 
-class DualTrainer(Trainer):
+class TripletLoss(object):
+    """Modified from Tong Xiao's open-reid (https://github.com/Cysu/open-reid).
+    Related Triplet Loss theory can be found in paper 'In Defense of the Triplet
+    Loss for Person Re-Identification'."""
+
+    def __init__(self, margin=None):
+        self.margin = margin
+        if margin is not None:
+            self.ranking_loss = nn.MarginRankingLoss(margin=margin)
+        else:
+            self.ranking_loss = nn.SoftMarginLoss()
+
+    def __call__(self, dist_ap, dist_an):
+        """
+        Args:
+          dist_ap: pytorch Variable, distance between anchor and positive sample,
+            shape [N]
+          dist_an: pytorch Variable, distance between anchor and negative sample,
+            shape [N]
+        Returns:
+          loss: pytorch Variable, with shape [1]
+        """
+        y = torch.autograd.Variable(
+            dist_an.data.new().resize_as_(dist_an.data).fill_(1))
+        if self.margin is not None:
+            loss = self.ranking_loss(dist_an, dist_ap, y)
+        else:
+            loss = self.ranking_loss(dist_an - dist_ap, y)
+        return loss
+
+
+class TripletTrainer(Trainer):
+    def __init__(self, s_net, t_net, config):
+        super(TripletTrainer, self).__init__(s_net, config)
+        # the student net is the base net
+        self.s_net = self.net
+        self.t_net = t_net
+        self.kd_fun = nn.KLDivLoss(size_average=False)
+        self.triplet = TripletLoss()
+
+    def kd_loss(self, out_s, out_t, target):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
+        # Standard Learning Loss ( Classification Loss)
+        # loss = self.loss_fun(out_s, target)
+        # Knowledge Distillation Loss
+        batch_size = target.shape[0]
+        s_max = F.log_softmax(out_s / T, dim=1)
+        t_max = F.softmax(out_t / T, dim=1)
+        # pred_s = out_s.data.max(1, keepdim=True)[1]
+        # pred_t = out_t.data.max(1, keepdim=True)[1]
+        y = torch.ones(target.shape[0]).cuda()
+        loss = F.cosine_embedding_loss(out_s, out_t, y)
+        loss_kd = self.kd_fun(s_max, t_max) / batch_size
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
+        return loss
+
+    def calculate_loss(self, data, target):
+        out_s = self.s_net(data)
+        out_t = self.t_net(data)
+        loss = self.kd_loss(out_s, out_t, target)
+        loss.backward()
+        self.optimizer.step()
+        return out_s, loss
+
+
+class DualTrainer(KDTrainer):
     def __init__(self, s_net, t_net1, t_net2, config):
         super(DualTrainer, self).__init__(s_net, config)
         # the student net is the base net
@@ -203,7 +270,7 @@ class DualTrainer(Trainer):
         return out_s, loss
 
 
-class BlindTrainer(Trainer):
+class BlindTrainer(KDTrainer):
     def __init__(self, s_net, t_net, config):
         super(BlindTrainer, self).__init__(s_net, config)
         # the student net is the base net

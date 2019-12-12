@@ -4,7 +4,7 @@ from pathlib import Path
 from distillers import *
 from data_loader import get_cifar
 from models.model_factory import create_model
-from trainer import BaseTrainer, KDTrainer, DualTrainer
+from trainer import BaseTrainer, KDTrainer, DualTrainer, TripletTrainer
 from plot import plot_results
 import util
 
@@ -98,8 +98,8 @@ def test_nokd(s_net, t_net, params):
     print("---------- Training NOKD -------")
     nokd_config = params.copy()
     nokd_trainer = BaseTrainer(s_net, config=nokd_config)
-    best_nokd_acc = nokd_trainer.train()
-    return best_nokd_acc
+    best_acc = nokd_trainer.train()
+    return best_acc
 
 
 def test_kd(s_net, t_net, params):
@@ -107,8 +107,17 @@ def test_kd(s_net, t_net, params):
     print("---------- Training KD -------")
     kd_config = params.copy()
     kd_trainer = KDTrainer(s_net, t_net=t_net, config=kd_config)
-    best_kd_acc = kd_trainer.train()
-    return best_kd_acc
+    best_acc = kd_trainer.train()
+    return best_acc
+
+
+def test_triplet(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
+    print("---------- Training TRIPLET -------")
+    kd_config = params.copy()
+    kd_trainer = TripletTrainer(s_net, t_net=t_net, config=kd_config)
+    best_acc = kd_trainer.train()
+    return best_acc
 
 
 def test_2kd(s_net, t_net1, params):
@@ -123,8 +132,8 @@ def test_2kd(s_net, t_net1, params):
     t_net2 = freeze_teacher(t_net2)
     kd_trainer = DualTrainer(s_net, t_net1=t_net1,
                              t_net2=t_net2, config=kd_config)
-    best_kd_acc = kd_trainer.train()
-    return best_kd_acc
+    best_acc = kd_trainer.train()
+    return best_acc
 
 
 def test_takd(s_net, t_net, params):
@@ -134,38 +143,38 @@ def test_takd(s_net, t_net, params):
     params["ta_name"] = "resnet20"
     ta_model = create_model(
         params["ta_name"], num_classes, params["device"])
-    best_ta_acc = run_takd_distillation(s_net, ta_model, t_net, **params)
-    return best_ta_acc
+    best_acc = run_takd_distillation(s_net, ta_model, t_net, **params)
+    return best_acc
 
 
 def test_ab(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    best_ab_acc = run_ab_distillation(s_net, t_net, **params)
-    return best_ab_acc
+    best_acc = run_ab_distillation(s_net, t_net, **params)
+    return best_acc
 
 
 def test_rkd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    best_rkd_acc = run_rkd_distillation(s_net, t_net, **params)
-    return best_rkd_acc
+    best_acc = run_rkd_distillation(s_net, t_net, **params)
+    return best_acc
 
 
 def test_pkd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    best_pkd_acc = run_pkd_distillation(s_net, t_net, **params)
-    return best_pkd_acc
+    best_acc = run_pkd_distillation(s_net, t_net, **params)
+    return best_acc
 
 
 def test_oh(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    best_oh_acc = run_oh_distillation(s_net, t_net, **params)
-    return best_oh_acc
+    best_acc = run_oh_distillation(s_net, t_net, **params)
+    return best_acc
 
 
 def test_fd(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    best_fd_acc = run_fd_distillation(s_net, t_net, **params)
-    return best_fd_acc
+    best_acc = run_fd_distillation(s_net, t_net, **params)
+    return best_acc
 
 
 def test_allkd(s_name, params):
@@ -184,20 +193,20 @@ def test_allkd(s_name, params):
         params_t["test_name"] = f"{s_name}_{t_name}"
         params_t["results_dir"] = params_t["results_dir"].joinpath("allkd")
         util.check_dir(params_t["results_dir"])
-        best_kd_acc = test_kd(s_net, t_net, params_t)
-        accs[t_name] = (best_t_acc, best_kd_acc)
+        best_acc = test_kd(s_net, t_net, params_t)
+        accs[t_name] = (best_t_acc, best_acc)
 
-    best_allkd_acc = 0
+    best_acc = 0
     best_t_acc = 0
     for t_name, acc in accs.items():
         if acc[0] > best_t_acc:
             best_t_acc = acc[0]
-        if acc[1] > best_allkd_acc:
-            best_allkd_acc = acc[1]
+        if acc[1] > best_acc:
+            best_acc = acc[1]
         print(f"Best results teacher {t_name}: {acc[0]}")
         print(f"Best results for {s_name}: {acc[1]}")
 
-    return best_t_acc, best_allkd_acc
+    return best_t_acc, best_acc
 
 
 def test_kdparam(s_net, t_net, params):
@@ -214,8 +223,8 @@ def test_kdparam(s_net, t_net, params):
         s_net = setup_student(s_name, params_s)
         params_s["test_name"] = f"{s_name}_{T}_{alpha}"
         print(f"Testing {s_name} with alpha {alpha} and T {T}.")
-        best_kd_acc = test_kd(s_net, t_net, params_s)
-        accs[params_s["test_name"]] = (alpha, T, best_kd_acc)
+        best_acc = test_kd(s_net, t_net, params_s)
+        accs[params_s["test_name"]] = (alpha, T, best_acc)
 
     best_kdparam_acc = 0
     for test_name, acc in accs.items():
