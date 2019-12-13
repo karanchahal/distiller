@@ -120,9 +120,9 @@ def test_triplet(s_net, t_net, params):
     return best_acc
 
 
-def test_2kd(s_net, t_net1, params):
+def test_multikd(s_net, t_net1, params):
     t_net1 = freeze_teacher(t_net1)
-    print("---------- Training 2KD -------")
+    print("---------- Training MULTIKD -------")
     kd_config = params.copy()
     params["t2_name"] = "WRN22_4"
     t_net2 = create_model(
@@ -130,8 +130,16 @@ def test_2kd(s_net, t_net1, params):
     t_net2 = util.load_checkpoint(
         t_net2, "pretrained/WRN22_4_cifar10.pth")
     t_net2 = freeze_teacher(t_net2)
-    kd_trainer = DualTrainer(s_net, t_net1=t_net1,
-                             t_net2=t_net2, config=kd_config)
+
+    params["t3_name"] = "resnet18"
+    t_net3 = create_model(
+        params["t3_name"], params["num_classes"], params["device"])
+    t_net3 = util.load_checkpoint(
+        t_net3, "pretrained/resnet18_cifar10.pth")
+    t_net3 = freeze_teacher(t_net3)
+
+    t_nets = [t_net1, t_net2]
+    kd_trainer = MultiTrainer(s_net, t_nets=t_nets, config=kd_config)
     best_acc = kd_trainer.train()
     return best_acc
 

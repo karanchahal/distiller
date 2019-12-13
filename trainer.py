@@ -211,14 +211,13 @@ class TripletLoss(object):
         return loss
 
 
-class TripletTrainer(Trainer):
+class TripletTrainer(KDTrainer):
     def __init__(self, s_net, t_net, config):
-        super(TripletTrainer, self).__init__(s_net, config)
+        super(TripletTrainer, self).__init__(s_net, t_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
-        self.kd_fun = nn.KLDivLoss(size_average=False)
-        self.triplet = TripletLoss()
+        self.triplet = F.cosine_embedding_loss
 
     def kd_loss(self, out_s, out_t, target):
         lambda_ = self.config["lambda_student"]
@@ -232,7 +231,7 @@ class TripletTrainer(Trainer):
         # pred_s = out_s.data.max(1, keepdim=True)[1]
         # pred_t = out_t.data.max(1, keepdim=True)[1]
         y = torch.ones(target.shape[0]).cuda()
-        loss = F.cosine_embedding_loss(out_s, out_t, y)
+        loss = self.triplet(out_s, out_t, y)
         loss_kd = self.kd_fun(s_max, t_max) / batch_size
         loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
         return loss
@@ -246,25 +245,35 @@ class TripletTrainer(Trainer):
         return out_s, loss
 
 
-class DualTrainer(KDTrainer):
-    def __init__(self, s_net, t_net1, t_net2, config):
-        super(DualTrainer, self).__init__(s_net, t_net1, config)
+class MultiTrainer(KDTrainer):
+    def __init__(self, s_net, t_nets, config):
+        super(MultiTrainer, self).__init__(s_net, s_net, config)
         # the student net is the base net
         self.s_net = self.net
-        self.t_net1 = t_net1
-        self.t_net2 = t_net2
+        self.t_nets = t_nets
+
+    def kd_loss(self, out_s, out_t, target):
+        T = self.config["T_student"]
+        # Knowledge Distillation Loss
+        batch_size = target.shape[0]
+        s_max = F.log_softmax(out_s / T, dim=1)
+        t_max = F.softmax(out_t / T, dim=1)
+        loss_kd = self.kd_fun(s_max, t_max) / batch_size
+        return loss_kd
 
     def calculate_loss(self, data, target):
+        lambda_ = self.config["lambda_student"]
+        T = self.config["T_student"]
         out_s = self.s_net(data)
         # Standard Learning Loss ( Classification Loss)
         loss = self.loss_fun(out_s, target)
-
         # Knowledge Distillation Loss
-        out_t1 = self.t_net1(data)
-        out_t2 = self.t_net2(data)
-        loss = self.kd_loss(out_s, out_t1, target)
-        loss += self.kd_loss(out_s, out_t2, target)
-
+        loss_kd = 0.0
+        for t_net in self.t_nets:
+            out_t = t_net(data)
+            loss_kd += self.kd_loss(out_s, out_t, target)
+        loss_kd /= len(self.t_nets)
+        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
         loss.backward()
         self.optimizer.step()
         return out_s, loss
