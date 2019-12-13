@@ -50,7 +50,7 @@ def setup_teacher(t_name, params):
     num_classes = params["num_classes"]
     t_net = create_model(t_name, num_classes, params["device"])
     teacher_config = params.copy()
-    teacher_config["test_name"] = params["teacher_name"] + "_teacher"
+    teacher_config["test_name"] = t_name + "_teacher"
 
     if params["t_checkpoint"]:
         # Just validate the performance

@@ -113,6 +113,7 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     teacher_path = data_dir.joinpath(f"{teacher_name}_val.csv")
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
+    print(df.max().sort_values(ascending=False))
     sns.lineplot(data=df, palette="tab10", style="event", dashes=DASH_STYLES)
     plot_dir = Path(plot_dir).joinpath(test_id)
     util.check_dir(plot_dir)
