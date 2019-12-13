@@ -4,7 +4,7 @@ from pathlib import Path
 from distillers import *
 from data_loader import get_cifar
 from models.model_factory import create_model
-from trainer import BaseTrainer, KDTrainer, DualTrainer, TripletTrainer
+from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer
 from plot import plot_results
 import util
 
