@@ -239,16 +239,12 @@ class DistillTrainer(BaseTrainer):
         # the student net is the base net
         self.s_net = self.net
         self.d_net = d_net
-        d_net.train()
-        d_net.s_net.train()
-        d_net.t_net.train()
-        # unfreeze the layers of the teacher
-        for param in d_net.t_net.parameters():
-            param.requires_grad = True
-        self.optimizer = optim.SGD([{'params': s_net.parameters()},
-                                    {'params': d_net.connectors.parameters()}],
-                                   lr=0.1, nesterov=True, momentum=0.9,
-                                   weight_decay=5e-4)
+        optim_params = [{"params": self.s_net.parameters()},
+                        {"params": self.d_net.connectors.parameters()}]
+
+        # Retrieve preconfigured optimizers and schedulers for all runs
+        self.optimizer = self.optim_cls(optim_params, **self.optim_args)
+        self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
     def calculate_loss(self, data, target):
 

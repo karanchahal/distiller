@@ -28,12 +28,14 @@ class Trainer():
         self.net = net
         self.device = config["device"]
         self.name = config["test_name"]
-
         # Retrieve preconfigured optimizers and schedulers for all runs
-        optim_cls, optim_args = get_optimizer(config["optim"], config)
-        sched_cls, sched_args = get_scheduler(config["sched"], config)
-        self.optimizer = optim_cls(net.parameters(), **optim_args)
-        self.scheduler = sched_cls(self.optimizer, **sched_args)
+        optim = config["optim"]
+        sched = config["sched"]
+        self.optim_cls, self.optim_args = get_optimizer(optim, config)
+        self.sched_cls, self.sched_args = get_scheduler(sched, config)
+        self.optimizer = self.optim_cls(net.parameters(), **self.optim_args)
+        self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
+
         self.loss_fun = nn.CrossEntropyLoss()
         self.train_loader = config["train_loader"]
         self.test_loader = config["test_loader"]

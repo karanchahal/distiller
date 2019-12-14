@@ -94,7 +94,10 @@ class ResNet(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, is_feat=False, use_relu=True):
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.conv1(x)
+        out = self.bn1(out)
+        if use_relu:
+            out = F.relu(out)
         b1 = self.layer1(out)
         if use_relu:
             b1 = F.relu(b1)
@@ -158,7 +161,10 @@ class ResNetSmall(nn.Module):
         return nn.Sequential(*layers)
 
     def forward(self, x, is_feat=False, use_relu=True):
-        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.conv1(x)
+        out = self.bn1(out)
+        if use_relu:
+            out = F.relu(out)
         b1 = self.layer1(out)
         if use_relu:
             b1 = F.relu(b1)
