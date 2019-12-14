@@ -114,7 +114,7 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
     print(df.max().sort_values(ascending=True))
     df = compute_rolling_df_mean(df, 10)
-    if len(modes + 1) > len(DASH_STYLES):
+    if (len(modes) + 1) > len(DASH_STYLES):
         print("Too many lines to plot!")
         return
 

@@ -44,6 +44,97 @@ def get_feat_layers(net):
     return layers
 
 
+class AB_distill_Resnet(nn.Module):
+
+    def __init__(self, t_net, s_net):
+        super(AB_distill_Resnet, self).__init__()
+
+        # another hack to support dataparallel models...
+        if isinstance(t_net, nn.DataParallel):
+            t_net = t_net.module
+        if isinstance(s_net, nn.DataParallel):
+            s_net = s_net.module
+
+        self.expansion = 2
+
+        self.n_channels_s = s_net.get_channel_num()
+        self.n_channels_t = t_net.get_channel_num()
+        bns_s = []
+        bns_t = []
+        for idx, channel in enumerate(self.n_channels_s):
+            bns_s.append(nn.BatchNorm2d(channel))
+        for idx, channel in enumerate(self.n_channels_t):
+            bns_t.append(nn.BatchNorm2d(channel))
+        self.bns_s = nn.ModuleList(bns_s)
+        self.bns_t = nn.ModuleList(bns_t)
+        fc_channel_s = self.n_channels_s[-1]
+        fc_channel_t = self.n_channels_t[-1]
+        # connection layers
+        if fc_channel_t == fc_channel_s:
+            C1 = []
+            C2 = []
+            C3 = []
+        else:
+            C1 = [nn.Conv2d(int(fc_channel_s / 4), int(fc_channel_t / 4), kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(int(fc_channel_t / 4))]
+            C2 = [nn.Conv2d(int(fc_channel_s / 2), int(fc_channel_t / 2), kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(int(fc_channel_t / 2))]
+            C3 = [nn.Conv2d(fc_channel_s, fc_channel_t, kernel_size=1, stride=1, padding=0, bias=False),
+                  nn.BatchNorm2d(fc_channel_t)]
+
+        for m in C1 + C2 + C3:
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+
+        connect1 = nn.Sequential(*C1)
+        connect2 = nn.Sequential(*C2)
+        connect3 = nn.Sequential(*C3)
+        self.connectors = nn.ModuleList([connect1, connect2, connect3])
+
+        self.t_net = t_net
+        self.s_net = s_net
+
+        self.stage1 = True
+        self.criterion_CE = nn.CrossEntropyLoss(size_average=False)
+
+    def forward(self, x):
+
+        # Teacher network
+        self.res0_t = F.relu(self.t_net.bn1(self.t_net.conv1(x)))
+
+        self.res1_t = self.t_net.layer1(self.res0_t)
+        self.res2_t = self.t_net.layer2(self.res1_t)
+        self.res3_t = self.t_net.layer3(self.res2_t)
+
+        out = F.relu(self.res3_t)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        self.out_t = self.t_net.linear(out)
+
+        # Student network
+        self.res0_s = F.relu(self.s_net.bn1(self.s_net.conv1(x)))
+        self.res1_s = self.s_net.layer1(self.res0_s)
+        self.res2_s = self.s_net.layer2(self.res1_s)
+        self.res3_s = self.s_net.layer3(self.res2_s)
+        # self.res1_s = self.s_net.model[3][:-1](self.s_net.model[0:3](x))
+        # self.res2_s = self.s_net.model[5][:-
+        #                                   1](self.s_net.model[4:5](F.relu(self.res1_s)))
+        # self.res3_s = self.s_net.model[11][:-
+        #                                    1](self.s_net.model[6:11](F.relu(self.res2_s)))
+
+        out = F.relu(self.res3_s)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(-1, self.n_channels_s[-1])
+        self.out_s = self.s_net.linear(out)
+
+        # Return all losses
+        return self.out_s
+
+
 class Active_Soft_WRN_norelu(nn.Module):
     def __init__(self, t_net, s_net):
 
@@ -66,7 +157,7 @@ class Active_Soft_WRN_norelu(nn.Module):
             bns_t.append(nn.BatchNorm2d(channel))
         self.bns_s = nn.ModuleList(bns_s)
         self.bns_t = nn.ModuleList(bns_t)
-        # Connection layers
+        # connection layers
         if fc_channel_t == fc_channel_s:
             C1 = []
             C2 = []
@@ -88,11 +179,9 @@ class Active_Soft_WRN_norelu(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
 
-        self.Connect1 = nn.Sequential(*C1)
-        self.Connect2 = nn.Sequential(*C2)
-        self.Connect3 = nn.Sequential(*C3)
-        self.Connectors = nn.ModuleList(
-            [self.Connect1, self.Connect2, self.Connect3])
+        self.connect1 = nn.Sequential(*C1)
+        self.connect2 = nn.Sequential(*C2)
+        self.connect3 = nn.Sequential(*C3)
 
         self.t_net = t_net
         self.s_net = s_net
@@ -157,7 +246,7 @@ class DistillTrainer(BaseTrainer):
         for param in d_net.t_net.parameters():
             param.requires_grad = True
         self.optimizer = optim.SGD([{'params': s_net.parameters()},
-                                    {'params': d_net.Connectors.parameters()}],
+                                    {'params': d_net.connectors.parameters()}],
                                    lr=0.1, nesterov=True, momentum=0.9,
                                    weight_decay=5e-4)
 
@@ -168,11 +257,11 @@ class DistillTrainer(BaseTrainer):
 
         # Alternative loss
         margin = 1.0
-        loss_alter = alt_L2(self.d_net.Connect3(
-            self.d_net.res3), self.d_net.res3_t.detach(), margin) / batch_size
-        loss_alter += alt_L2(self.d_net.Connect2(self.d_net.res2),
+        loss_alter = alt_L2(self.d_net.connectors[2](
+            self.d_net.res3_s), self.d_net.res3_t.detach(), margin) / batch_size
+        loss_alter += alt_L2(self.d_net.connectors[1](self.d_net.res2_s),
                              self.d_net.res2_t.detach(), margin) / batch_size / 2
-        loss_alter += alt_L2(self.d_net.Connect1(self.d_net.res1),
+        loss_alter += alt_L2(self.d_net.connectors[0](self.d_net.res1_s),
                              self.d_net.res1_t.detach(), margin) / batch_size / 4
 
         loss = loss_alter / 1000 * 3
@@ -186,10 +275,10 @@ def run_ab_distillation(s_net, t_net, **params):
 
     # check if this technique supports these kinds of models
     models = [params["student_name"], params["teacher_name"]]
-    if not util.check_support(models, SUPPORTED):
-        return 0.0
+    # if not util.check_support(models, SUPPORTED):
+    #     return 0.0
 
-    d_net = Active_Soft_WRN_norelu(t_net, s_net).to(params["device"])
+    d_net = AB_distill_Resnet(t_net, s_net).to(params["device"])
 
     # Distillation (Initialization)
     print("---------- Initialize AB Student Distillation-------")

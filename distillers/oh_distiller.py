@@ -76,7 +76,7 @@ class Distiller(nn.Module):
         else:
             s_channels = s_net.get_channel_num()
 
-        self.Connectors = nn.ModuleList(
+        self.connectors = nn.ModuleList(
             [build_feature_connector(t, s) for t, s in zip(t_channels, s_channels)])
 
         margins = [get_margin_from_BN(bn) for bn in teacher_bns]
@@ -95,7 +95,7 @@ class Distiller(nn.Module):
 
         loss_distill = 0
         for i in range(s_feats_num):
-            s_feats[i] = self.Connectors[i](s_feats[i])
+            s_feats[i] = self.connectors[i](s_feats[i])
             loss_distill += distillation_loss(s_feats[i], t_feats[i].detach(), getattr(self, 'margin%d' % (i + 1))) \
                 / 2 ** (s_feats_num - i - 1)
 
@@ -110,6 +110,12 @@ class OHTrainer(BaseTrainer):
         # the student net is the base net
         self.s_net = self.net.s_net
         self.d_net = self.net
+        optim_params = [{"params": self.s_net.parameters()},
+                        {"params": self.d_net.connectors.parameters()}]
+
+        # Retrieve preconfigured optimizers and schedulers for all runs
+        self.optimizer = self.optim_cls(optim_params, **self.optim_args)
+        self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
     def calculate_loss(self, data, target):
 

@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as torch_func
-from trainer import KDTrainer
+from trainer import Trainer
 
 
 def get_layer_types(feat_layers):
@@ -53,7 +53,7 @@ def build_transformers(s_channels, t_channels):
     return nn.ModuleList(transfomers)
 
 
-def get_layers(x, layers, classifier=[], use_relu=True):
+def get_layers(x, layers, classifier=[], use_relu=False):
     layer_feats = []
     out = x
     for layer in layers:
@@ -64,7 +64,7 @@ def get_layers(x, layers, classifier=[], use_relu=True):
     for last in classifier:
         out = last(out)
         layer_feats.append(out)
-    return layer_feats[0], layer_feats[-1]
+    return layer_feats[:3], layer_feats[-1]
 
 
 def compute_feature_loss(s_feats, t_feats, batch_size):
@@ -107,13 +107,22 @@ class Distiller(nn.Module):
         return s_out
 
 
-class FDTrainer(KDTrainer):
+class FDTrainer(Trainer):
+    def __init__(self, s_net, config):
+        super(FDTrainer, self).__init__(s_net, config)
+        optim_params = [
+            {"params": s_net.s_feat_layers.parameters()},
+            {"params": s_net.s_last.parameters()}]
+
+        # Retrieve preconfigured optimizers and schedulers for all runs
+        self.optimizer = self.optim_cls(optim_params, **self.optim_args)
+        self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
     def calculate_loss(self, data, target):
         s_out, t_out, feature_loss = self.net(data, target, is_loss=True)
         loss = 0.0
-        # loss += self.loss_fun(s_out, target)
-        loss += self.kd_loss(s_out, t_out, target)
+        loss += self.loss_fun(s_out, target)
+        # loss += self.kd_loss(s_out, t_out, target)
         loss += feature_loss
         loss.backward()
         self.optimizer.step()
@@ -127,7 +136,7 @@ def run_fd_distillation(s_net, t_net, **params):
     s_net = Distiller(s_net, t_net).to(params["device"])
     total_params = sum(p.numel() for p in s_net.parameters())
     print(f"FD distiller total parameters: {total_params}")
-    s_trainer = FDTrainer(s_net, t_net, config=params)
+    s_trainer = FDTrainer(s_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc
