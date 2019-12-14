@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from distillers import *
-from data_loader import get_cifar, get_uda_cifar
+from data_loader import get_cifar, get_cifar_uda
 from models.model_factory import create_model
 from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer
 from plot import plot_results
@@ -334,7 +334,7 @@ def start_evaluation(args):
 def start_uda_evaluation(args):
     device = util.setup_torch()
     num_classes = 100 if args.dataset == "cifar100" else 10
-    train_loader, test_loader = get_uda_cifar(num_classes,
+    train_loader, test_loader = get_cifar_uda(num_classes,
                                           batch_size=args.batch_size)
 
     # for benchmarking, decided whether we want to use unique test folders

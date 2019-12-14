@@ -181,7 +181,7 @@ class KDTrainer(Trainer):
 
 class UDATrainer(Trainer):
     def __init__(self, s_net, t_net, config):
-        super(KDTrainer, self).__init__(s_net, config)
+        super(UDATrainer, self).__init__(s_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
