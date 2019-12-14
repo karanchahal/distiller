@@ -89,7 +89,6 @@ def read_csv(csv_path):
     df = pd.read_csv(csv_path)
     df = df.drop("Training Loss", axis=1)
     df.index.name = "Epoch"
-    df = compute_rolling_df_mean(df, 10)
     return df
 
 
@@ -113,8 +112,14 @@ def plot_results(data_dir, plot_dir=PLOT_DIR, test_id=""):
     teacher_path = data_dir.joinpath(f"{teacher_name}_val.csv")
     dfs["teacher"] = read_csv(teacher_path)
     df = pd.concat(dfs.values(), axis=1, keys=dfs.keys())
-    print(df.max().sort_values(ascending=False))
-    sns.lineplot(data=df, palette="tab10", style="event", dashes=DASH_STYLES)
+    print(df.max().sort_values(ascending=True))
+    df = compute_rolling_df_mean(df, 10)
+    if len(modes + 1) > len(DASH_STYLES):
+        print("Too many lines to plot!")
+        return
+
+    sns.lineplot(data=df, palette="tab10",
+                 style="event", dashes=DASH_STYLES)
     plot_dir = Path(plot_dir).joinpath(test_id)
     util.check_dir(plot_dir)
     plt_name = f"{epochs}_epochs_{teacher_name}_to_{student_name}"
