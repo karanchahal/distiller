@@ -215,22 +215,20 @@ class UDATrainer(KDTrainer):
 
     def uda_loss(self, n_out, aug_out):
         batch_size = n_out.shape[0]
+        n_out = F.log_softmax(n_out, dim=1)
+        aug_out = F.softmax(aug_out, dim=1)
         return self.kd_fun(n_out, aug_out) / batch_size
 
     def calculate_loss(self, data, aug_data, target):
         out_s = self.s_net(data)
         out_t = self.t_net(data)
 
-        # with torch.no_grad():
-        #     out_n_s = self.s_net(data)
-
         out_aug_s = self.s_net(aug_data)
         out_aug_t = self.t_net(aug_data)
-        k_loss = 0
-        k_loss = self.kd_loss(out_s, out_t, target)
-        k_loss += self.kd_loss(out_aug_s, out_aug_t, target)
-        # u_loss = self.uda_loss(out_n_s, out_aug_s)
-        loss = k_loss
+        loss = 0
+        loss += self.kd_loss(out_s, out_t, target) / 2
+        loss += self.kd_loss(out_aug_s, out_aug_t, target) / 2
+        loss += self.uda_loss(out_aug_s, out_aug_t)
         loss.backward()
         self.optimizer.step()
         return out_s, loss

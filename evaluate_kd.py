@@ -2,7 +2,7 @@ import argparse
 from pathlib import Path
 
 from distillers import *
-from data_loader import get_cifar, get_cifar_uda
+from data_loader import get_cifar
 from models.model_factory import create_model
 from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer, UDATrainer
 from plot import plot_results
@@ -115,8 +115,8 @@ def test_uda(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     num_classes = params["num_classes"]
     batch_size = params["batch_size"]
-    train_loader, test_loader = get_cifar_uda(
-        num_classes, batch_size=batch_size)
+    train_loader, test_loader = get_cifar(num_classes, use_uda=True,
+                                          batch_size=batch_size)
     params["train_loader"] = train_loader
     params["test_loader"] = test_loader
     print("---------- Training UDA -------")
