@@ -228,6 +228,8 @@ class UDATrainer(Trainer):
 
     def uda_loss(self, n_out, aug_out):
         batch_size = n_out.shape[0]
+        n_out = F.log_softmax(n_out, dim=1)
+        aug_out = F.softmax(aug_out, dim=1)
         return self.kd_fun(n_out, aug_out) / batch_size
 
     def calculate_loss(self, data, aug_data, target):
