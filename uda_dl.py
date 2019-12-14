@@ -1,5 +1,3 @@
-import torch 
-
 from PIL import Image, ImageEnhance, ImageOps
 import numpy as np
 import random
@@ -16,6 +14,7 @@ class CIFAR10Policy(object):
         >>>     CIFAR10Policy(),
         >>>     transforms.ToTensor()])
     """
+
     def __init__(self, fillcolor=(128, 128, 128)):
         self.policies = [
             SubPolicy(0.1, "invert", 7, 0.2, "contrast", 6, fillcolor),
@@ -48,7 +47,6 @@ class CIFAR10Policy(object):
             SubPolicy(0.8, "equalize", 8, 0.1, "invert", 3, fillcolor),
             SubPolicy(0.7, "translateY", 9, 0.9, "autocontrast", 1, fillcolor)
         ]
-
 
     def __call__(self, img):
         policy_idx = random.randint(0, len(self.policies) - 1)
@@ -84,16 +82,20 @@ class SubPolicy(object):
 
         func = {
             "shearX": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, magnitude * random.choice([-1, 1]), 0, 0, 1, 0),
+                img.size, Image.AFFINE, (1, magnitude *
+                                         random.choice([-1, 1]), 0, 0, 1, 0),
                 Image.BICUBIC, fillcolor=fillcolor),
             "shearY": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, 0, magnitude * random.choice([-1, 1]), 1, 0),
+                img.size, Image.AFFINE, (1, 0, 0, magnitude *
+                                         random.choice([-1, 1]), 1, 0),
                 Image.BICUBIC, fillcolor=fillcolor),
             "translateX": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, magnitude * img.size[0] * random.choice([-1, 1]), 0, 1, 0),
+                img.size, Image.AFFINE, (1, 0, magnitude *
+                                         img.size[0] * random.choice([-1, 1]), 0, 1, 0),
                 fillcolor=fillcolor),
             "translateY": lambda img, magnitude: img.transform(
-                img.size, Image.AFFINE, (1, 0, 0, 0, 1, magnitude * img.size[1] * random.choice([-1, 1])),
+                img.size, Image.AFFINE, (1, 0, 0, 0, 1, magnitude *
+                                         img.size[1] * random.choice([-1, 1])),
                 fillcolor=fillcolor),
             "rotate": lambda img, magnitude: rotate_with_fill(img, magnitude),
             # "rotate": lambda img, magnitude: img.rotate(magnitude * random.choice([-1, 1])),
@@ -118,11 +120,9 @@ class SubPolicy(object):
         self.operation2 = func[operation2]
         self.magnitude2 = ranges[operation2][magnitude_idx2]
 
-
     def __call__(self, img):
-        if random.random() < self.p1: img = self.operation1(img, self.magnitude1)
-        if random.random() < self.p2: img = self.operation2(img, self.magnitude2)
+        if random.random() < self.p1:
+            img = self.operation1(img, self.magnitude1)
+        if random.random() < self.p2:
+            img = self.operation2(img, self.magnitude2)
         return img
-
-
-

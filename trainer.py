@@ -179,27 +179,14 @@ class KDTrainer(Trainer):
         self.optimizer.step()
         return out_s, loss
 
-class UDATrainer(Trainer):
+
+class UDATrainer(KDTrainer):
     def __init__(self, s_net, t_net, config):
-        super(KDTrainer, self).__init__(s_net, config)
+        super(UDATrainer, self).__init__(s_net, t_net, config)
         # the student net is the base net
         self.s_net = self.net
         self.t_net = t_net
         self.kd_fun = nn.KLDivLoss(size_average=False)
-
-    def kd_loss(self, out_s, out_t, target):
-        lambda_ = self.config["lambda_student"]
-        T = self.config["T_student"]
-        # Standard Learning Loss ( Classification Loss)
-        loss = self.loss_fun(out_s, target)
-        # Knowledge Distillation Loss
-        batch_size = target.shape[0]
-        s_max = F.log_softmax(out_s / T, dim=1)
-        t_max = F.softmax(out_t / T, dim=1)
-        loss_kd = self.kd_fun(s_max, t_max) / batch_size
-        loss = (1 - lambda_) * loss + lambda_ * T * T * loss_kd
-        
-        return loss
 
     def train_single_epoch(self, t_bar):
         self.net.train()
@@ -233,14 +220,17 @@ class UDATrainer(Trainer):
     def calculate_loss(self, data, aug_data, target):
         out_s = self.s_net(data)
         out_t = self.t_net(data)
-        
-        with torch.no_grad():
-            out_n_s = self.s_net(data)
+
+        # with torch.no_grad():
+        #     out_n_s = self.s_net(data)
 
         out_aug_s = self.s_net(aug_data)
+        out_aug_t = self.s_net(aug_data)
+        k_loss = 0
         k_loss = self.kd_loss(out_s, out_t, target)
-        u_loss = self.uda_loss(out_n_s, out_aug_s)
-        loss = k_loss + u_loss
+        k_loss += self.kd_loss(out_aug_s, out_aug_t, target)
+        # u_loss = self.uda_loss(out_n_s, out_aug_s)
+        loss = k_loss
         loss.backward()
         self.optimizer.step()
         return out_s, loss

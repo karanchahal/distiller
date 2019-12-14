@@ -13,6 +13,7 @@ USE_CIFAR_10_1 = False
 from torch.utils.data import Dataset, DataLoader
 from uda_dl import CIFAR10Policy
 
+
 class CfDataset(Dataset):
     """Face Landmarks dataset."""
 
@@ -26,7 +27,7 @@ class CfDataset(Dataset):
         """
         self.dataset = dataset
         self.uda = uda
-     
+
         self.end_tf = transforms.Compose([
             transforms.ToTensor(),
             normalize,
@@ -37,7 +38,6 @@ class CfDataset(Dataset):
             transforms.ToTensor(),
             normalize,
         ])
-
 
     def __len__(self):
         return len(self.dataset)
@@ -52,7 +52,6 @@ class CfDataset(Dataset):
             return normal_x, aug_x, target
 
         return self.end_tf(x), target
-
 
 
 class TensorImgSet(Dataset):
@@ -118,8 +117,6 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
         normalize,
     ])
 
-    
-
     test_transform = transforms.Compose([
         transforms.ToTensor(),
         normalize,
@@ -137,8 +134,7 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128):
         testset = dataset(root=dataset_dir, train=False,
                           download=True,
                           transform=test_transform)
-    
-    
+
     train_loader = torch.utils.data.DataLoader(trainset,
                                                batch_size=batch_size,
                                                num_workers=NUM_WORKERS,
@@ -187,7 +183,7 @@ def get_cifar_uda(num_classes=100, dataset_dir="./data", batch_size=128):
         testset = dataset(root=dataset_dir, train=False,
                           download=True,
                           transform=test_transform)
-    
+
     uda_trainset = CfDataset(dataset=trainset, uda=True, normalize=normalize)
     train_loader = torch.utils.data.DataLoader(uda_trainset,
                                                batch_size=batch_size,

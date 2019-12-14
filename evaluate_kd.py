@@ -2,9 +2,9 @@ import argparse
 from pathlib import Path
 
 from distillers import *
-from data_loader import get_cifar, get_uda_cifar
+from data_loader import get_cifar, get_cifar_uda
 from models.model_factory import create_model
-from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer
+from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer, UDATrainer
 from plot import plot_results
 import util
 
@@ -113,11 +113,18 @@ def test_kd(s_net, t_net, params):
 
 def test_uda(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
-    print("---------- Training KD -------")
+    num_classes = params["num_classes"]
+    batch_size = params["batch_size"]
+    train_loader, test_loader = get_cifar_uda(
+        num_classes, batch_size=batch_size)
+    params["train_loader"] = train_loader
+    params["test_loader"] = test_loader
+    print("---------- Training UDA -------")
     kd_config = params.copy()
     kd_trainer = UDATrainer(s_net, t_net=t_net, config=kd_config)
     best_acc = kd_trainer.train()
     return best_acc
+
 
 def test_triplet(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
@@ -188,6 +195,12 @@ def test_oh(s_net, t_net, params):
 
 
 def test_fd(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
+    best_acc = run_fd_distillation(s_net, t_net, **params)
+    return best_acc
+
+
+def test_udl(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     best_acc = run_fd_distillation(s_net, t_net, **params)
     return best_acc
@@ -311,6 +324,7 @@ def start_evaluation(args):
         "results_dir": results_dir,
         "train_loader": train_loader,
         "test_loader": test_loader,
+        "batch_size": args.batch_size,
         # model configuration
         "device": device,
         "teacher_name": args.t_name,
@@ -331,50 +345,7 @@ def start_evaluation(args):
     run_benchmarks(args.modes, params, args.s_name, args.t_name)
     plot_results(results_dir, test_id=test_id)
 
-def start_uda_evaluation(args):
-    device = util.setup_torch()
-    num_classes = 100 if args.dataset == "cifar100" else 10
-    train_loader, test_loader = get_uda_cifar(num_classes,
-                                          batch_size=args.batch_size)
-
-    # for benchmarking, decided whether we want to use unique test folders
-    if USE_ID:
-        test_id = util.generate_id()
-    else:
-        test_id = ""
-    results_dir = Path(args.results_dir).joinpath(test_id)
-    results_dir = Path(results_dir).joinpath(args.dataset)
-    util.check_dir(results_dir)
-
-    # Parsing arguments and prepare settings for training
-    params = {
-        "epochs": args.epochs,
-        "modes": args.modes,
-        "t_checkpoint": args.t_checkpoint,
-        "results_dir": results_dir,
-        "train_loader": train_loader,
-        "test_loader": test_loader,
-        # model configuration
-        "device": device,
-        "teacher_name": args.t_name,
-        "student_name": args.s_name,
-        "num_classes": num_classes,
-        # hyperparameters
-        "weight_decay": args.weight_decay,
-        "learning_rate": args.learning_rate,
-        "momentum": args.momentum,
-        "sched": "multisteplr",
-        "optim": "SGD",
-        # fixed knowledge distillation parameters
-        "lambda_student": 0.5,
-        "T_student": 5,
-    }
-    test_conf_name = results_dir.joinpath("test_config.json")
-    util.dump_json_config(test_conf_name, params)
-    run_benchmarks(["uda"], params, args.s_name, args.t_name)
-    plot_results(results_dir, test_id=test_id)
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
-    #start_evaluation(ARGS)
-    start_uda_evaluation(ARGS)
+    start_evaluation(ARGS)
