@@ -225,7 +225,7 @@ class UDATrainer(KDTrainer):
         #     out_n_s = self.s_net(data)
 
         out_aug_s = self.s_net(aug_data)
-        out_aug_t = self.s_net(aug_data)
+        out_aug_t = self.t_net(aug_data)
         k_loss = 0
         k_loss = self.kd_loss(out_s, out_t, target)
         k_loss += self.kd_loss(out_aug_s, out_aug_t, target)
