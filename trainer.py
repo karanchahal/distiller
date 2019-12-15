@@ -230,7 +230,7 @@ class UDATrainer(KDTrainer):
         loss = 0
         loss += self.kd_loss(out_s, out_t, target) / 2
         loss += self.kd_loss(out_aug_s, out_aug_t, target) / 2
-        loss += self.uda_loss(out_aug_s, out_aug_t)
+        # loss += self.uda_loss(out_s, out_t)
         loss.backward()
         self.optimizer.step()
         return out_s, loss
