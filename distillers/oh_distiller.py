@@ -85,45 +85,94 @@ class Distiller(nn.Module):
                 i + 1), margin.unsqueeze(1).unsqueeze(2).unsqueeze(0).detach())
 
         self.s_net = s_net
+        self.t_net = t_net
 
-    def forward(self, x, t_feats=None):
+    def forward(self, x):
 
-        s_feats, s_pool, s_out = self.s_net(x, is_feat=True, use_relu=False)
+        s_feats, s_out = self.s_net.module.extract_feature(x, preReLU=True)
+        t_feats, t_out = self.t_net.module.extract_feature(x, preReLU=True)
+        s_feats_num = len(s_feats)
 
-        if t_feats:
-            s_feats_num = len(s_feats)
-            loss_distill = 0
-            for i in range(s_feats_num):
-                s_feats[i] = self.connectors[i](s_feats[i])
-                loss_distill += distillation_loss(s_feats[i], t_feats[i].detach(), getattr(self, 'margin%d' % (i + 1))) \
-                    / 2 ** (s_feats_num - i - 1)
-            return s_out, loss_distill
-        return s_out
+        loss_distill = 0
+        for i in range(s_feats_num):
+            s_feats[i] = self.connectors[i](s_feats[i])
+            loss_distill += distillation_loss(s_feats[i], t_feats[i].detach(), getattr(self, 'margin%d' % (i + 1))) \
+                / 2 ** (s_feats_num - i - 1)
+
+        return s_out, loss_distill
 
 
 class OHTrainer(BaseTrainer):
-    def __init__(self, d_net, t_net, config):
+    def __init__(self, d_net, config):
         # the student net is the base net
-        super(OHTrainer, self).__init__(d_net, config)
-        # decouple the teacher from the student
-        self.t_net = t_net
-        optim_params = [{"params": self.net.parameters()}]
+        super(OHTrainer, self).__init__(d_net.s_net, config)
+        # We train on the distillation net
+        self.d_net = d_net
+        optim_params = [{"params": self.d_net.s_net.parameters()},
+                        {"params": self.d_net.connectors.parameters()}]
 
         # Retrieve preconfigured optimizers and schedulers for all runs
         self.optimizer = self.optim_cls(optim_params, **self.optim_args)
         self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
     def calculate_loss(self, data, target):
-        t_feats, t_pool, t_out = self.t_net(data, is_feat=True, use_relu=False)
 
-        s_out, loss_distill = self.net(data, t_feats)
-        loss_CE = self.loss_fun(s_out, target)
+        output, loss_distill = self.d_net(data)
+        loss_CE = self.loss_fun(output, target)
 
         loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
 
         loss.backward()
         self.optimizer.step()
-        return t_out, loss
+        return output, loss
+
+    def train_single_epoch(self, t_bar):
+        self.d_net.train()
+        self.d_net.s_net.train()
+        self.d_net.t_net.train()
+        total_correct = 0.0
+        total_loss = 0.0
+        len_train_set = len(self.train_loader.dataset)
+        for batch_idx, (x, y) in enumerate(self.train_loader):
+            x = x.to(self.device)
+            y = y.to(self.device)
+            self.optimizer.zero_grad()
+
+            # this function is implemented by the subclass
+            y_hat, loss = self.calculate_loss(x, y)
+
+            # Metric tracking boilerplate
+            pred = y_hat.data.max(1, keepdim=True)[1]
+            total_correct += pred.eq(y.data.view_as(pred)).sum()
+            total_loss += loss
+            curr_acc = 100.0 * (total_correct / float(len_train_set))
+            curr_loss = (total_loss / float(batch_idx))
+            t_bar.update(self.batch_size)
+            t_bar.set_postfix_str(f"Acc {curr_acc:.3f}% Loss {curr_loss:.3f}")
+        total_acc = float(total_correct / len_train_set)
+        return total_acc
+
+    def validate(self, epoch=0):
+        self.d_net.s_net.eval()
+        acc = 0.0
+        with torch.no_grad():
+            correct = 0
+            acc = 0
+            for images, labels in self.test_loader:
+                images = images.to(self.device)
+                labels = labels.to(self.device)
+                output = self.d_net.s_net(images, use_relu=False)
+                # Standard Learning Loss ( Classification Loss)
+                loss = self.loss_fun(output, labels)
+                # get the index of the max log-probability
+                pred = output.data.max(1, keepdim=True)[1]
+                correct += pred.eq(labels.data.view_as(pred)).cpu().sum()
+
+            acc = float(correct) / len(self.test_loader.dataset)
+            print(f"\nEpoch {epoch}: Validation set: Average loss: {loss:.4f},"
+                  f" Accuracy: {correct}/{len(self.test_loader.dataset)} "
+                  f"({acc * 100.0:.3f}%)")
+        return acc
 
 
 def run_oh_distillation(s_net, t_net, **params):
@@ -136,8 +185,9 @@ def run_oh_distillation(s_net, t_net, **params):
     # Student training
     # Define loss and the optimizer
     print("---------- Training OKD Student -------")
+    params = params.copy()
     d_net = Distiller(s_net, t_net).to(params["device"])
-    s_trainer = OHTrainer(d_net, t_net, config=params)
+    s_trainer = OHTrainer(d_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc

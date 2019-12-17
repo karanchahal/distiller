@@ -32,10 +32,10 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
+        out = F.relu(x)
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
-        # out = F.relu(out)
         return out
 
 
@@ -62,11 +62,11 @@ class Bottleneck(nn.Module):
             )
 
     def forward(self, x):
+        out = F.relu(x)
         out = F.relu(self.bn1(self.conv1(x)))
         out = F.relu(self.bn2(self.conv2(out)))
         out = self.bn3(self.conv3(out))
         out += self.shortcut(x)
-        # out = F.relu(out)
         return out
 
 
@@ -83,7 +83,7 @@ class ResNet(nn.Module):
         self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=2)
         self.linear = nn.Linear(512 * block.expansion, num_classes)
-        self.n_channels = [64, 128, 256, 512, 512 * block.expansion]
+        self.n_channels = [64, 128, 256, 512]
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -98,23 +98,24 @@ class ResNet(nn.Module):
         out = self.bn1(out)
         if use_relu:
             out = F.relu(out)
-        b1 = self.layer1(out)
+        feat1 = self.layer1(out)
         if use_relu:
-            b1 = F.relu(b1)
-        b2 = self.layer2(b1)
+            feat1 = F.relu(feat1)
+        feat2 = self.layer2(feat1)
         if use_relu:
-            b2 = F.relu(b2)
-        b3 = self.layer3(b2)
+            feat2 = F.relu(feat2)
+        feat3 = self.layer3(feat2)
         if use_relu:
-            b3 = F.relu(b3)
-        b4 = self.layer4(b3)
-        b4 = F.relu(b4)
-        pool = F.avg_pool2d(b4, 4)
+            feat3 = F.relu(feat3)
+
+        feat4 = self.layer4(feat3)
+        feat4 = F.relu(feat4)
+        pool = F.avg_pool2d(feat4, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
 
         if is_feat:
-            return[b1, b2, b3, b4], pool, out
+            return[feat1, feat2, feat3, feat4], pool, out
 
         return out
 
@@ -137,6 +138,29 @@ class ResNet(nn.Module):
     def get_channel_num(self):
         return self.n_channels
 
+    def extract_feature(self, x, preReLU=False):
+
+        x = self.conv1(x)
+        x = self.bn1(x)
+
+        feat1 = self.layer1(x)
+        feat2 = self.layer2(feat1)
+        feat3 = self.layer3(feat2)
+        feat4 = self.layer4(feat3)
+
+        x = F.relu(feat4)
+        x = F.avg_pool2d(x, 4)
+        x = x.view(x.size(0), -1)
+        out = self.linear(x)
+
+        if not preReLU:
+            feat1 = F.relu(feat1)
+            feat2 = F.relu(feat2)
+            feat3 = F.relu(feat3)
+            feat4 = F.relu(feat4)
+
+        return [feat1, feat2, feat3, feat4], out
+
 
 class ResNetSmall(nn.Module):
     def __init__(self, block, num_blocks, num_classes=10):
@@ -150,7 +174,7 @@ class ResNetSmall(nn.Module):
         self.layer2 = self._make_layer(block, 32, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
         self.linear = nn.Linear(256 * block.expansion, num_classes)
-        self.n_channels = [16, 32, 64, 256 * block.expansion]
+        self.n_channels = [16, 32, 64]
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1] * (num_blocks - 1)
@@ -165,20 +189,22 @@ class ResNetSmall(nn.Module):
         out = self.bn1(out)
         if use_relu:
             out = F.relu(out)
-        b1 = self.layer1(out)
+        feat1 = self.layer1(out)
         if use_relu:
-            b1 = F.relu(b1)
-        b2 = self.layer2(b1)
+            feat1 = F.relu(feat1)
+        feat2 = self.layer2(feat1)
         if use_relu:
-            b2 = F.relu(b2)
-        b3 = self.layer3(b2)
-        b3 = F.relu(b3)
-        pool = F.avg_pool2d(b3, 4)
+            feat2 = F.relu(feat2)
+        feat3 = self.layer3(feat2)
+
+        # the last relu is always included
+        feat3 = F.relu(feat3)
+        pool = F.avg_pool2d(feat3, 4)
         pool = pool.view(pool.size(0), -1)
         out = self.linear(pool)
 
         if is_feat:
-            return[b1, b2, b3], pool, out
+            return[feat1, feat2, feat3], pool, out
 
         return out
 
@@ -198,6 +224,27 @@ class ResNetSmall(nn.Module):
 
     def get_channel_num(self):
         return self.n_channels
+
+    def extract_feature(self, x, preReLU=False):
+
+        x = self.conv1(x)
+        x = self.bn1(x)
+
+        feat1 = self.layer1(x)
+        feat2 = self.layer2(feat1)
+        feat3 = self.layer3(feat2)
+
+        x = F.relu(feat3)
+        x = F.avg_pool2d(x, 4)
+        x = x.view(x.size(0), -1)
+        out = self.linear(x)
+
+        if not preReLU:
+            feat1 = F.relu(feat1)
+            feat2 = F.relu(feat2)
+            feat3 = F.relu(feat3)
+
+        return [feat1, feat2, feat3], out
 
 
 def resnet8(**kwargs):

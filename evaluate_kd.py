@@ -180,7 +180,7 @@ def test_pkd(s_net, t_net, params):
 
 
 def test_oh(s_net, t_net, params):
-    t_net = freeze_teacher(t_net)
+    # do not freeze the teacher in oh distillation
     best_acc = run_oh_distillation(s_net, t_net, **params)
     return best_acc
 
@@ -333,4 +333,4 @@ def start_evaluation(args):
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
-    start_evaluation(ARGS)
+    start_eva
