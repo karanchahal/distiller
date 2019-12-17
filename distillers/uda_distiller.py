@@ -1,5 +1,6 @@
 import random
 import numpy as np
+import copy
 
 import torch
 import torch.nn as nn
@@ -244,7 +245,7 @@ def override_loader(train_loader):
 def run_uda_distillation(s_net, t_net, **params):
 
     print("---------- Training UDA Student -------")
-    params = params.copy()
+    params = copy.deepcopy(params)
     # Grab a new training loader
     params["train_loader"] = override_loader(params["train_loader"])
     # Student training
