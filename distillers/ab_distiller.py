@@ -13,7 +13,6 @@
 
 import copy
 import math
-import torch.optim as optim
 import torch.nn.functional as F
 import torch.nn as nn
 import torch
@@ -30,10 +29,15 @@ def alt_L2(source, target, margin):
 
 
 DISTILL_EPOCHS = 10
-SUPPORTED = ["WRN10_4", "WRN16_1", "WRN16_2", "WRN16_4",
-             "WRN16_8", "WRN28_2", "WRN22_4", "WRN22_8",
-             "WRN28_1", "WRN10_1", "WRN40_1", "WRN40_4",
-             ]
+# SUPPORTED = ["WRN10_4", "WRN16_1", "WRN16_2", "WRN16_4",
+#              "WRN16_8", "WRN28_2", "WRN22_4", "WRN22_8",
+#              "WRN28_1", "WRN10_1", "WRN40_1", "WRN40_4",
+#              ]
+
+SUPPORTED = ["resnet8", "resnet14", "resnet20", "resnet26",
+             "resnet32", "resnet44", "resnet56", "resnet10",
+             "resnet18", "resnet34", "resnet50", "resnet101",
+             "resnet152", ]
 
 
 def get_feat_layers(net):
@@ -271,8 +275,8 @@ def run_ab_distillation(s_net, t_net, **params):
 
     # check if this technique supports these kinds of models
     models = [params["student_name"], params["teacher_name"]]
-    # if not util.check_support(models, SUPPORTED):
-    #     return 0.0
+    if not util.check_support(models, SUPPORTED):
+        return 0.0
 
     d_net = AB_distill_Resnet(t_net, s_net).to(params["device"])
 

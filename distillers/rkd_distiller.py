@@ -340,13 +340,12 @@ class RKDTrainer(KDTrainer):
         t_feats, t_pool, t_out = self.t_net(data, is_feat=True)
         s_feats, s_pool, s_out = self.s_net(data, is_feat=True)
 
-        teacher_outputs = self.t_net(data)
-        loss = self.kd_loss(s_out, teacher_outputs, target)
+        loss = self.kd_loss(s_out, t_out, target)
 
         at_loss = 0
         # technically we should use every layer expect the first here
         # not sure if this will change the outcome significantly
-        for idx, s_feat in enumerate(s_feats, start=0):
+        for idx, s_feat in enumerate(s_feats, start=1):
             at_loss += self.at_ratio * \
                 self.at_criterion(s_feat, t_feats[idx])
         dist_loss = self.dist_ratio * self.dist_criterion(s_pool, t_pool)

@@ -61,7 +61,7 @@ def get_margin_from_BN(bn):
 
 
 class Distiller(nn.Module):
-    def __init__(self, t_net, s_net):
+    def __init__(self, s_net, t_net):
         super(Distiller, self).__init__()
 
         if isinstance(t_net, nn.DataParallel):
@@ -85,48 +85,45 @@ class Distiller(nn.Module):
                 i + 1), margin.unsqueeze(1).unsqueeze(2).unsqueeze(0).detach())
 
         self.s_net = s_net
-        self.t_net = t_net
 
-    def forward(self, x, is_loss=False):
+    def forward(self, x, t_feats=None):
 
-        t_feats, t_pool, t_out = self.t_net(x, is_feat=True, use_relu=False)
         s_feats, s_pool, s_out = self.s_net(x, is_feat=True, use_relu=False)
-        s_feats_num = len(s_feats)
 
-        loss_distill = 0
-        for i in range(s_feats_num):
-            s_feats[i] = self.connectors[i](s_feats[i])
-            loss_distill += distillation_loss(s_feats[i], t_feats[i].detach(), getattr(self, 'margin%d' % (i + 1))) \
-                / 2 ** (s_feats_num - i - 1)
-
-        if is_loss:
+        if t_feats:
+            s_feats_num = len(s_feats)
+            loss_distill = 0
+            for i in range(s_feats_num):
+                s_feats[i] = self.connectors[i](s_feats[i])
+                loss_distill += distillation_loss(s_feats[i], t_feats[i].detach(), getattr(self, 'margin%d' % (i + 1))) \
+                    / 2 ** (s_feats_num - i - 1)
             return s_out, loss_distill
         return s_out
 
 
 class OHTrainer(BaseTrainer):
-    def __init__(self, s_net, config):
-        super(OHTrainer, self).__init__(s_net, config)
+    def __init__(self, d_net, t_net, config):
         # the student net is the base net
-        self.s_net = self.net.s_net
-        self.d_net = self.net
-        optim_params = [{"params": self.s_net.parameters()},
-                        {"params": self.d_net.connectors.parameters()}]
+        super(OHTrainer, self).__init__(d_net, config)
+        # decouple the teacher from the student
+        self.t_net = t_net
+        optim_params = [{"params": self.net.parameters()}]
 
         # Retrieve preconfigured optimizers and schedulers for all runs
         self.optimizer = self.optim_cls(optim_params, **self.optim_args)
         self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
     def calculate_loss(self, data, target):
+        t_feats, t_pool, t_out = self.t_net(data, is_feat=True, use_relu=False)
 
-        output, loss_distill = self.d_net(data, is_loss=True)
-        loss_CE = self.loss_fun(output, target)
+        s_out, loss_distill = self.net(data, t_feats)
+        loss_CE = self.loss_fun(s_out, target)
 
         loss = loss_CE + loss_distill.sum() / self.batch_size / 1000
 
         loss.backward()
         self.optimizer.step()
-        return output, loss
+        return t_out, loss
 
 
 def run_oh_distillation(s_net, t_net, **params):
@@ -139,8 +136,8 @@ def run_oh_distillation(s_net, t_net, **params):
     # Student training
     # Define loss and the optimizer
     print("---------- Training OKD Student -------")
-    s_net = Distiller(t_net, s_net).to(params["device"])
-    s_trainer = OHTrainer(s_net, config=params)
+    d_net = Distiller(s_net, t_net).to(params["device"])
+    s_trainer = OHTrainer(d_net, t_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc

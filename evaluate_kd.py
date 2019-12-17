@@ -4,7 +4,7 @@ from pathlib import Path
 from distillers import *
 from data_loader import get_cifar
 from models.model_factory import create_model
-from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer, UDATrainer
+from trainer import BaseTrainer, KDTrainer, MultiTrainer, TripletTrainer
 from plot import plot_results
 import util
 
@@ -111,21 +111,6 @@ def test_kd(s_net, t_net, params):
     return best_acc
 
 
-def test_uda(s_net, t_net, params):
-    t_net = freeze_teacher(t_net)
-    num_classes = params["num_classes"]
-    batch_size = params["batch_size"]
-    train_loader, test_loader = get_cifar(num_classes, use_uda=True,
-                                          batch_size=batch_size)
-    params["train_loader"] = train_loader
-    params["test_loader"] = test_loader
-    print("---------- Training UDA -------")
-    kd_config = params.copy()
-    kd_trainer = UDATrainer(s_net, t_net=t_net, config=kd_config)
-    best_acc = kd_trainer.train()
-    return best_acc
-
-
 def test_triplet(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     print("---------- Training TRIPLET -------")
@@ -170,6 +155,12 @@ def test_takd(s_net, t_net, params):
     return best_acc
 
 
+def test_uda(s_net, t_net, params):
+    t_net = freeze_teacher(t_net)
+    best_acc = run_uda_distillation(s_net, t_net, **params)
+    return best_acc
+
+
 def test_ab(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     best_acc = run_ab_distillation(s_net, t_net, **params)
@@ -195,12 +186,6 @@ def test_oh(s_net, t_net, params):
 
 
 def test_fd(s_net, t_net, params):
-    t_net = freeze_teacher(t_net)
-    best_acc = run_fd_distillation(s_net, t_net, **params)
-    return best_acc
-
-
-def test_udl(s_net, t_net, params):
     t_net = freeze_teacher(t_net)
     best_acc = run_fd_distillation(s_net, t_net, **params)
     return best_acc

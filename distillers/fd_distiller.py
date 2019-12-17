@@ -38,7 +38,7 @@ def set_last_layers(linear, last_channel, as_module=False):
     w_in = last_channel[3]
     flat_size = c_in * h_in * w_in
     pooling = int((flat_size / linear.in_features)**(0.5))
-    modules = [nn.AvgPool2d((pooling)), nn.Flatten(), linear]
+    modules = [nn.ReLU(), nn.AvgPool2d((pooling)), nn.Flatten(), linear]
     if as_module:
         return nn.ModuleList(modules)
     return modules
@@ -53,73 +53,68 @@ def build_transformers(s_channels, t_channels):
     return nn.ModuleList(transfomers)
 
 
-def get_layers(x, layers, classifier=[], use_relu=False):
+def get_layers(x, layers, linear, use_relu=True):
     layer_feats = []
+    layer_feats_relu = []
     out = x
     for layer in layers:
         out = layer(out)
-        if use_relu:
+        layer_feats.append(out)
+        if not isinstance(layer, nn.Conv2d):
             out = torch_func.relu(out)
-        layer_feats.append(out)
-    for last in classifier:
-        out = last(out)
-        layer_feats.append(out)
-    return layer_feats[:3], layer_feats[-1]
+            layer_feats_relu.append(out)
+    out = torch_func.avg_pool2d(out, 4)
+    out = out.view(out.size(0), -1)
+    out = linear(out)
+    return layer_feats, layer_feats_relu, out
 
 
 def compute_feature_loss(s_feats, t_feats, batch_size):
     feature_loss = 0.0
-    s_totals = []
-    t_totals = []
-    for s_feat in s_feats:
+    for idx, s_feat in enumerate(s_feats):
+        t_feat = t_feats[idx]
         s_feat = torch_func.adaptive_max_pool2d(s_feat, (1, 1))
-        s_totals.append(s_feat)
-    for t_feat in t_feats:
         t_feat = torch_func.adaptive_max_pool2d(t_feat, (1, 1))
-        t_totals.append(t_feat)
-    s_total = torch.cat(s_totals, dim=1)
-    t_total = torch.cat(t_totals, dim=1)
-    feature_loss = torch_func.mse_loss(s_total, t_total)
+        feature_loss += torch_func.pairwise_distance(s_feat, t_feat).max()
     return feature_loss
 
 
 class Distiller(nn.Module):
-    def __init__(self, s_net, t_net):
+    def __init__(self, s_net):
         super(Distiller, self).__init__()
 
         self.s_feat_layers, self.s_linear, s_channels = get_net_info(
             s_net, as_module=True)
-        self.t_feat_layers, self.t_linear, t_channels = get_net_info(
-            t_net, as_module=False)
-        self.s_last = set_last_layers(
-            self.s_linear, s_channels[-1], as_module=True)
-        self.t_last = set_last_layers(
-            self.t_linear, t_channels[-1], as_module=False)
 
-    def forward(self, x, targets=None, is_loss=False):
-        s_feats, s_out = get_layers(x, self.s_feat_layers, self.s_last)
-        if is_loss:
+    def forward(self, x, t_feats=None):
+        s_feats, s_feats_relu, s_out = get_layers(
+            x, self.s_feat_layers, self.s_linear)
+        if t_feats:
             batch_size = s_out.shape[0]
-            t_feats, t_out = get_layers(x, self.t_feat_layers, self.t_last)
             feature_loss = 0.0
             feature_loss += compute_feature_loss(s_feats, t_feats, batch_size)
-            return s_out, t_out, feature_loss
+            return s_out, feature_loss
         return s_out
 
 
 class FDTrainer(Trainer):
-    def __init__(self, s_net, config):
+    def __init__(self, s_net, t_net, config):
         super(FDTrainer, self).__init__(s_net, config)
-        optim_params = [
-            {"params": s_net.s_feat_layers.parameters()},
-            {"params": s_net.s_last.parameters()}]
+        optim_params = [{"params": s_net.parameters()}]
 
         # Retrieve preconfigured optimizers and schedulers for all runs
         self.optimizer = self.optim_cls(optim_params, **self.optim_args)
         self.scheduler = self.sched_cls(self.optimizer, **self.sched_args)
 
+        self.t_feat_layers, self.t_linear, t_channels = get_net_info(
+            t_net, as_module=False)
+        self.t_last = set_last_layers(
+            self.t_linear, t_channels[-1], as_module=False)
+
     def calculate_loss(self, data, target):
-        s_out, t_out, feature_loss = self.net(data, target, is_loss=True)
+        t_feats, t_feats_relu, t_out = get_layers(
+            data, self.t_feat_layers, self.t_linear)
+        s_out, feature_loss = self.net(data, t_feats)
         loss = 0.0
         loss += self.loss_fun(s_out, target)
         # loss += self.kd_loss(s_out, t_out, target)
@@ -133,10 +128,10 @@ def run_fd_distillation(s_net, t_net, **params):
 
     # Student training
     print("---------- Training FD Student -------")
-    s_net = Distiller(s_net, t_net).to(params["device"])
+    s_net = Distiller(s_net).to(params["device"])
     total_params = sum(p.numel() for p in s_net.parameters())
     print(f"FD distiller total parameters: {total_params}")
-    s_trainer = FDTrainer(s_net, config=params)
+    s_trainer = FDTrainer(s_net, t_net, config=params)
     best_s_acc = s_trainer.train()
 
     return best_s_acc
