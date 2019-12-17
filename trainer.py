@@ -128,17 +128,13 @@ class Trainer():
                 correct += pred.eq(labels.data.view_as(pred)).cpu().sum()
 
             acc = float(correct) / len(self.test_loader.dataset)
-            print(f"\nEpoch {epoch}: Validation set: Average loss: {loss:.4f}, "
-                  f"Accuracy: {correct}/{len(self.test_loader.dataset)} "
+            print(f"\nEpoch {epoch}: Validation set: Average loss: {loss:.4f},"
+                  f" Accuracy: {correct}/{len(self.test_loader.dataset)} "
                   f"({acc * 100.0:.3f}%)")
         return acc
 
     def save(self, epoch, name):
-        torch.save({
-            "model_state_dict": self.net.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "epoch": epoch,
-        }, name)
+        torch.save({"model_state_dict": self.net.state_dict(), }, name)
 
 
 class BaseTrainer(Trainer):
@@ -180,91 +176,6 @@ class KDTrainer(Trainer):
         loss.backward()
         self.optimizer.step()
         return out_s, loss
-
-
-class UDATrainer(KDTrainer):
-    def __init__(self, s_net, t_net, config):
-        super(UDATrainer, self).__init__(s_net, t_net, config)
-        # the student net is the base net
-        self.s_net = self.net
-        self.t_net = t_net
-        self.kd_fun = nn.KLDivLoss(size_average=False)
-
-    def train_single_epoch(self, t_bar):
-        self.net.train()
-        total_correct = 0.0
-        total_loss = 0.0
-        len_train_set = len(self.train_loader.dataset)
-        for batch_idx, (x, x_aug, y) in enumerate(self.train_loader):
-            x = x.to(self.device)
-            y = y.to(self.device)
-            x_aug = x_aug.to(self.device)
-            self.optimizer.zero_grad()
-
-            # this function is implemented by the subclass
-            y_hat, loss = self.calculate_loss(x, x_aug, y)
-
-            # Metric tracking boilerplate
-            pred = y_hat.data.max(1, keepdim=True)[1]
-            total_correct += pred.eq(y.data.view_as(pred)).sum()
-            total_loss += loss
-            curr_acc = 100.0 * (total_correct / float(len_train_set))
-            curr_loss = (total_loss / float(batch_idx))
-            t_bar.update(self.batch_size)
-            t_bar.set_postfix_str(f"Acc {curr_acc:.3f}% Loss {curr_loss:.3f}")
-        total_acc = float(total_correct / len_train_set)
-        return total_acc
-
-    def uda_loss(self, n_out, aug_out):
-        batch_size = n_out.shape[0]
-        n_out = F.log_softmax(n_out, dim=1)
-        aug_out = F.softmax(aug_out, dim=1)
-        return self.kd_fun(n_out, aug_out) / batch_size
-
-    def calculate_loss(self, data, aug_data, target):
-        out_s = self.s_net(data)
-        out_t = self.t_net(data)
-
-        out_aug_s = self.s_net(aug_data)
-        out_aug_t = self.t_net(aug_data)
-        loss = 0
-        loss += self.kd_loss(out_s, out_t, target) / 2
-        loss += self.kd_loss(out_aug_s, out_aug_t, target) / 2
-        # loss += self.uda_loss(out_s, out_t)
-        loss.backward()
-        self.optimizer.step()
-        return out_s, loss
-
-
-class TripletLoss(object):
-    """Modified from Tong Xiao's open-reid (https://github.com/Cysu/open-reid).
-    Related Triplet Loss theory can be found in paper 'In Defense of the Triplet
-    Loss for Person Re-Identification'."""
-
-    def __init__(self, margin=None):
-        self.margin = margin
-        if margin is not None:
-            self.ranking_loss = nn.MarginRankingLoss(margin=margin)
-        else:
-            self.ranking_loss = nn.SoftMarginLoss()
-
-    def __call__(self, dist_ap, dist_an):
-        """
-        Args:
-          dist_ap: pytorch Variable, distance between anchor and positive sample,
-            shape [N]
-          dist_an: pytorch Variable, distance between anchor and negative sample,
-            shape [N]
-        Returns:
-          loss: pytorch Variable, with shape [1]
-        """
-        y = torch.autograd.Variable(
-            dist_an.data.new().resize_as_(dist_an.data).fill_(1))
-        if self.margin is not None:
-            loss = self.ranking_loss(dist_an, dist_ap, y)
-        else:
-            loss = self.ranking_loss(dist_an - dist_ap, y)
-        return loss
 
 
 class TripletTrainer(KDTrainer):

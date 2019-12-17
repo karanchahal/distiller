@@ -228,7 +228,6 @@ def override_loader(train_loader):
     # Assume that the normalization step is the last transform
     transform = dataset.transform
     normalize = transform.transforms[-1]
-    print(type(normalize))
     if not isinstance(normalize, transforms.Normalize):
         normalize = None
     dataset.transform = None
@@ -244,6 +243,8 @@ def override_loader(train_loader):
 
 def run_uda_distillation(s_net, t_net, **params):
 
+    print("---------- Training UDA Student -------")
+    params = params.copy()
     # Grab a new training loader
     params["train_loader"] = override_loader(params["train_loader"])
     # Student training
