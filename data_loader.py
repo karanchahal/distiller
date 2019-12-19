@@ -69,9 +69,12 @@ def get_cifar(num_classes=100, dataset_dir="./data", batch_size=128,
         transforms.ToTensor(),
         normalize,
     ])
-
-    trainset = dataset(root=dataset_dir, train=True,
-                       download=True, transform=train_transform)
+    trainset = torch.utils.data.ConcatDataset([
+    dataset(root=dataset_dir, train=True,
+           download=True, transform=None),
+    torchvision.datasets.STL10('./data', split='unlabeled', 
+            folds=None, transform=None, target_transform=None, download=True)
+    ])
 
     test_transform = transforms.Compose([
         transforms.ToTensor(),

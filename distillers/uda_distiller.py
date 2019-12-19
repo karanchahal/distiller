@@ -147,6 +147,8 @@ class UDADataset(Dataset):
         self.transform = transform
 
         self.aug_tf = transforms.Compose([
+            transforms.RandomCrop(32, padding=4),
+            transforms.RandomHorizontalFlip(),
             CIFAR10Policy(),
             transforms.ToTensor(),
             normalize,
@@ -204,14 +206,41 @@ class UDATrainer(KDTrainer):
         return self.kd_fun(n_out, aug_out) / batch_size
 
     def calculate_loss(self, data, aug_data, target):
+        #print(data.size())
         out_s = self.s_net(data)
         out_t = self.t_net(data)
-
+        #print(aug_data.size())
         out_aug_s = self.s_net(aug_data)
         out_aug_t = self.t_net(aug_data)
-        loss = 0
-        loss += self.kd_loss(out_s, out_t, target) / 2
-        loss += self.kd_loss(out_aug_s, out_aug_t, target) / 2
+
+        s_cifar = out_s[target != -1]
+        t_cifar = out_t[target != -1]
+        tar_cifar = target[target != -1]
+        sa_cifar = out_aug_s[target != -1]
+        ta_cifar = out_aug_t[target != -1]
+        
+        s_stl = out_s[target == -1]
+        t_stl = out_t[target == -1]
+        sa_stl = out_aug_s[target == -1]
+        ta_stl = out_aug_t[target == -1]
+        
+        min_size = min(s_stl.size(0), s_cifar.size(0))
+        
+        s_cifar = s_cifar[:min_size]
+        t_cifar = t_cifar[:min_size]
+        tar_cifar = tar_cifar[:min_size]
+        sa_cifar = sa_cifar[:min_size]
+        ta_cifar = ta_cifar[:min_size]
+        s_stl = s_stl[:min_size]
+        t_stl = t_stl[:min_size]
+        sa_stl = sa_stl[:min_size]
+        ta_stl = ta_stl[:min_size]
+
+        loss = self.kd_loss(s_cifar, t_cifar, tar_cifar) / 4
+        loss += self.kd_loss(sa_cifar, ta_cifar, tar_cifar) / 4
+       
+        loss += self.uda_loss(s_stl, t_stl) / 4
+        loss += self.uda_loss(sa_stl, ta_stl) / 4
         loss.backward()
         self.optimizer.step()
         return out_s, loss
@@ -226,14 +255,22 @@ def override_loader(train_loader):
 
     dataset = train_loader.dataset
     # Assume that the normalization step is the last transform
-    transform = dataset.transform
-    normalize = transform.transforms[-1]
-    print(type(normalize))
-    if not isinstance(normalize, transforms.Normalize):
-        normalize = None
-    dataset.transform = None
+    normalize = transforms.Normalize(
+            (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
+    train_transform = transforms.Compose([
+        transforms.RandomCrop(32, padding=4),
+        transforms.RandomHorizontalFlip(),
+        transforms.ToTensor(),
+        normalize,
+    ])
+    #transform = None
+    #normalize = transform.transforms[-1]
+    #print(type(normalize))
+    #if not isinstance(normalize, transforms.Normalize):
+    #    normalize = None
+    #dataset.transform = None
     # replace the dataset with the custom UDA dataset and refresh the loader
-    trainset = UDADataset(dataset=dataset, transform=transform,
+    trainset = UDADataset(dataset=dataset, transform=train_transform,
                           normalize=normalize)
     train_loader = torch.utils.data.DataLoader(trainset,
                                                batch_size=batch_size,
