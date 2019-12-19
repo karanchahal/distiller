@@ -17,3 +17,30 @@ pretrained teacher.
 
 
 ## Supported distillation modes
+
+### NOKD
+Do not use knowledge distillation, just train the model.
+### KD
+Use the normal Hinton loss to distill a student network.
+### ALLKD
+Parameter Tuning, distill from a list of teacher models and pick the best performing one.
+### KDPARAM
+Parameter Tuning, distill using varying combinations of temperature and alpha and pick the best performing combination.
+### TRIPLET
+Knowledge Distillation with a different loss to cross-entropy. Here we use the triplet loss with the student as negative example.
+### MULTIKD
+Train a student under an ensemble of students that are picked from a list.
+### UDA
+Run knowledge distillation in combination with [unsupervised data augmentation]{https://github.com/google-research/uda).
+### TAKD
+Run distillation using [Teacher-Assistant](https://github.com/imirzadeh/Teacher-Assistant-Knowledge-Distillation) distillation.
+### AB
+Run feature distillation using [Activation-Boundary](https://github.com/bhheo/AB) distillation.
+### OH
+Run feature distillation using the [Feature Overhaul](https://github.com/clovaai/overhaul-distillation) distillation.
+### RKD
+Run distillation using the [Relational Knowledge](https://github.com/lenscloth/RKD) distillation.
+### PKD
+Run feature distillation using the [Patient Knowledge](https://github.com/intersun/PKD-for-BERT-Model-Compression) distillation.
+### FD
+Runs a custom feature distillation distillation that just pools and flattens feature layers.
