@@ -333,4 +333,4 @@ def start_evaluation(args):
 
 if __name__ == "__main__":
     ARGS = parse_arguments()
-    start_eva
+    start_evaluation(ARGS)
