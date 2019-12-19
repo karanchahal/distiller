@@ -31,7 +31,7 @@ Knowledge Distillation with a different loss to cross-entropy. Here we use the t
 ### MULTIKD
 Train a student under an ensemble of students that are picked from a list.
 ### UDA
-Run knowledge distillation in combination with [unsupervised data augmentation]{https://github.com/google-research/uda).
+Run knowledge distillation in combination with [unsupervised data augmentation](https://github.com/google-research/uda).
 ### TAKD
 Run distillation using [Teacher-Assistant](https://github.com/imirzadeh/Teacher-Assistant-Knowledge-Distillation) distillation.
 ### AB
