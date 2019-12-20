@@ -51,5 +51,5 @@ Run feature distillation using the [Feature Overhaul](https://github.com/clovaai
 Run distillation using the [Relational Knowledge](https://github.com/lenscloth/RKD) distillation.
 #### PKD
 Run feature distillation using the [Patient Knowledge](https://github.com/intersun/PKD-for-BERT-Model-Compression) distillation.
-#### FD
-Runs a custom feature distillation distillation that just pools and flattens feature layers.
+#### SFD
+Runs a custom feature distillation distillation (Simple Feature Distillation) that just pools and flattens feature layers.
