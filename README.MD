@@ -1,3 +1,10 @@
+# Distiller
+
+
+<img src="distiller.jpg" alt="alt text" width="200" height="200">
+
+A clean Pytorch implementation to run quick distillation experiments.
+
 ## Python Dependencies
 This codebase only supports Python 3.6+.
 
