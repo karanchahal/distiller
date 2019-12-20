@@ -6,6 +6,8 @@ Required Python packages:
 
 All packages can be installed using `pip3 install --user -r requirements.txt`.
 
+This project is also integerated with Pytorch Lightning. Use the lightning branch to see Pytorch Lightning compatible code.
+
 ## Run
 The benchmarks can be run via `python3 evaluate_kd.py` and providing the
 respective command line parameters. For example:
