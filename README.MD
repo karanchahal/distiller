@@ -27,8 +27,8 @@ pretrained teacher. There are checkpoints of multiple models in the pretrained f
 
 ## Supported distillation modes
 
-| Distillation Technique        | Mode           | Description  |
-| ------------- |:-------------:| -----:|
+| Distillation Technique        | Mode           | Description     |
+| ------------- |:-------------:| :-----:|
 | Baseline Accuracy | nokd | Plain training with no knowledge distillation. |
 | Baseline Knowledge Distillation Accuracy | kd | Hinton loss to distill a student network. |
 | Ensemble of Teachers | allkd | Distill from a list of teacher models and pick the best performing one. |
@@ -45,3 +45,5 @@ pretrained teacher. There are checkpoints of multiple models in the pretrained f
 
 ## Results
 
+<img src="plots/table.png" alt="alt text" >
+<img src="plots/350epoch.png" alt="alt text" >
