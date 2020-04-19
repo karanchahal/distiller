@@ -32,6 +32,12 @@ def parse_arguments():
                         dest="t_name", help="teacher student name")
     parser.add_argument("--student", "--model", default="resnet18",
                         dest="s_name", type=str, help="teacher student name")
+    parser.add_argument("--optimizer", default="sgd",
+                        dest="optimizer", type=str,
+                        help="Which optimizer to use")
+    parser.add_argument("--scheduler", default="multisteplr",
+                        dest="scheduler", type=str,
+                        help="Which scheduler to use")
     parser.add_argument("--teacher-checkpoint", default="",
                         dest="t_checkpoint", type=str,
                         help="optional pretrained checkpoint for teacher")
@@ -319,8 +325,8 @@ def start_evaluation(args):
         "weight_decay": args.weight_decay,
         "learning_rate": args.learning_rate,
         "momentum": args.momentum,
-        "sched": "multisteplr",
-        "optim": "SGD",
+        "sched": args.scheduler,
+        "optim": args.optimizer,
         # fixed knowledge distillation parameters
         "lambda_student": 0.5,
         "T_student": 5,

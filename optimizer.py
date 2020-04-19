@@ -21,9 +21,8 @@ def get_optimizer(optim_str, params):
         optim_args["amsbound"] = True
         optim_args["final_lr"] = 0.1
         return AdaBound, optim_args
-    else:
-        print("Requested optimizer not supported!")
-        exit(1)
+    print("Requested optimizer not supported!")
+    exit(1)
 
 
 def get_scheduler(sched_str, params):
@@ -49,9 +48,17 @@ def get_scheduler(sched_str, params):
         sched_args["gamma"] = 0.1
         sched_args["verbose"] = True
         return optim.lr_scheduler.ReduceLROnPlateau, sched_args
-    else:
-        print("Requested optimizer not supported!")
-        exit(1)
+    elif sched_str.lower() == "constant":
+        # use a constant scheduler, i.e. no scheduler
+        return DummyScheduler, sched_args
+    print("Requested optimizer not supported!")
+    exit(1)
+
+
+class DummyScheduler():
+
+    def __new__(*args, **kwargs):
+        return None
 
 
 class AdaBound(optim.Optimizer):
